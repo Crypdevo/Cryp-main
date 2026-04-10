@@ -1945,6 +1945,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
         elif query.data == "back_to_menu":
+            user_id = query.from_user.id
+            user = get_user(user_id)
+            is_pro = bool(user["is_pro"]) if user else False
+
             if is_pro:
                 text = (
                     "🚀 Welcome to Cryp Pro\n\n"
@@ -1953,7 +1957,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             else:
                 text = (
-                    "👋 Welcome to Cryp Free\n\n"
+                    "📉 Welcome to Cryp Free\n\n"
                     "Get free crypto alerts, market updates, and basic coin coverage.\n\n"
                     "👇 Choose an option below:"
                 )
@@ -1962,7 +1966,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text=text,
                 reply_markup=main_menu_keyboard(user_id)
             )
-
     except Exception as e:
         print("Button handler error:", e)
         
