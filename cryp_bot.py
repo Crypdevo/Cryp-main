@@ -2041,9 +2041,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data["awaiting_payment_email"] = False
 
             checkout_url = (
-                f"https://happy-joy-production-f73f.up.railway.app/paystack/checkout"
-                f"?telegram_user_id={user_id}&email={email}"
-            )
+                    f"https://happy-joy-production-f73f.up.railway.app/paystack/checkout"
+                    f"?telegram_user_id={user_id}&email={email}"
+                )
 
             await update.message.reply_text(
                 "💳 *Complete Your Subscription*\n\n"
