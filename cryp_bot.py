@@ -1316,35 +1316,35 @@ async def send_daily_briefing(context: ContextTypes.DEFAULT_TYPE):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     username = update.effective_user.username
-    
+
     create_or_update_user(user_id, username=username)
-    
+
     user = get_user(user_id)
     is_pro = bool(user["is_pro"]) if user else False
-    
+
     print(f"START DEBUG -> user_id={user_id}, username={username}, db_is_pro={is_pro}")
 
-    if user_id in pro_users:
+    if is_pro:
         text = (
-    "🚀 *Welcome to Cryp Pro*\n\n"
-    "Your premium access is active.\n\n"
-    "Pro plan includes:\n"
-    "• Unlimited active alerts\n"
-    "• Real-time market updates\n"
-    "• Faster notifications\n"
-    "• Premium features as they roll out\n\n"
-    "Choose an option below 👇"
-)
+            "🚀 *Welcome to Cryp Pro*\n\n"
+            "Your premium access is active.\n\n"
+            "Pro plan includes:\n"
+            "• Unlimited active alerts\n"
+            "• Real-time market updates\n"
+            "• Faster notifications\n"
+            "• Premium features as they roll out\n\n"
+            "Choose an option below 👇"
+        )
     else:
         text = (
-    "📊 *Welcome to Cryp Free*\n\n"
-    "Track the market with simple crypto alerts.\n\n"
-    "Free plan includes:\n"
-    "• Up to 2 active alerts\n"
-    "• Easy alert management\n"
-    "• Option to upgrade anytime\n\n"
-    "Choose an option below 👇"
-)
+            "📊 *Welcome to Cryp Free*\n\n"
+            "Track the market with simple crypto alerts.\n\n"
+            "Free plan includes:\n"
+            "• Up to 2 active alerts\n"
+            "• Easy alert management\n"
+            "• Option to upgrade anytime\n\n"
+            "Choose an option below 👇"
+        )
 
     await update.message.reply_text(
     text,
