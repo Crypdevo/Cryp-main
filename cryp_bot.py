@@ -277,9 +277,8 @@ def back_menu_keyboard():
 
 def upgrade_keyboard():
     keyboard = [
-        [InlineKeyboardButton("💳 Pay Now", url=PAYMENT_LINK)],
-        [InlineKeyboardButton("✅ I've Paid", callback_data="i_paid")],
-        [InlineKeyboardButton("⬅ Back to Menu", callback_data="back_to_menu")],
+        [InlineKeyboardButton("💳 Start Subscription", callback_data="pay_now")],
+        [InlineKeyboardButton("⬅ Back to Menu", callback_data="back_to_menu")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
@@ -1847,6 +1846,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=upgrade_keyboard(),
                 parse_mode="Markdown"
             )
+            
+        elif query.data == "pay_now":
+            context.user_data["awaiting_payment_email"] = True
+
+            await query.edit_message_text(
+                text=(
+                    "📧 *Enter your email address*\n\n"
+                    "Reply with the email you want to use for your monthly subscription.\n\n"
+                    "Example:\n"
+                    "`you@example.com`"
+                ),
+                parse_mode="Markdown",
+                reply_markup=back_menu_keyboard()
+            )    
 
         elif query.data == "pro_status":
             if is_pro:
@@ -2009,10 +2022,36 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         print(f"HANDLE DEBUG -> user_id={user_id}, username={username}, db_is_pro={is_pro}")
 
-        message_parts = update.message.text.strip().lower().split()
-        text = update.message.text.strip().lower()
+        raw_text = update.message.text.strip()
+        message_parts = raw_text.lower().split()
+        text = raw_text.lower()
 
         supported_coins = ["btc", "eth", "sol", "xrp", "doge", "ada", "bnb"]
+
+        # NEW: handle payment email capture
+        if context.user_data.get("awaiting_payment_email"):
+            email = raw_text.strip()
+
+            if "@" not in email or "." not in email:
+                await update.message.reply_text(
+                    "❌ Please enter a valid email address.\n\nExample:\nname@email.com"
+                )
+                return
+
+            context.user_data["awaiting_payment_email"] = False
+
+            checkout_url = (
+                f"https://happy-joy-production-f73f.up.railway.app/paystack/checkout"
+                f"?telegram_user_id={user_id}&email={email}"
+            )
+
+            await update.message.reply_text(
+                "💳 *Complete Your Subscription*\n\n"
+                f"Tap the link below to start your *R99/month* Cryp Pro subscription:\n\n"
+                f"{checkout_url}",
+                parse_mode="Markdown"
+            )
+            return
 
         if text in supported_coins:
             analysis = get_coin_analysis(text, is_pro=is_pro)
