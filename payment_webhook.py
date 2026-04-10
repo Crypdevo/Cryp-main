@@ -43,7 +43,7 @@ def ensure_payment_columns():
         "paystack_subscription_code": "TEXT",
         "paystack_email_token": "TEXT",
         "subscription_status": "TEXT",
-        "next_payment_date": "TEXT",
+        "current_period_end": "TEXT",
         "updated_at": "TEXT"
     }
 
@@ -62,13 +62,16 @@ def update_user_payment_profile(
     paystack_subscription_code: Optional[str] = None,
     paystack_email_token: Optional[str] = None,
     subscription_status: Optional[str] = None,
-    next_payment_date: Optional[str] = None,
+    current_period_end: Optional[str] = None,
     is_pro: Optional[bool] = None,
 ):
     conn = get_conn()
     cur = conn.cursor()
 
-    cur.execute("SELECT user_id FROM users WHERE user_id = ?", (telegram_user_id,))
+    cur.execute(
+        "SELECT telegram_user_id FROM users WHERE telegram_user_id = ?",
+        (telegram_user_id,)
+    )
     existing = cur.fetchone()
 
     now = datetime.utcnow().isoformat()
@@ -77,23 +80,23 @@ def update_user_payment_profile(
         cur.execute(
             """
             INSERT INTO users (
-                user_id, username, is_pro, email,
+                telegram_user_id, username, email, is_pro,
                 paystack_customer_code, paystack_subscription_code,
                 paystack_email_token, subscription_status,
-                next_payment_date, updated_at
+                current_period_end, updated_at
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 telegram_user_id,
                 None,
-                1 if is_pro else 0,
                 email,
+                1 if is_pro else 0,
                 paystack_customer_code,
                 paystack_subscription_code,
                 paystack_email_token,
                 subscription_status,
-                next_payment_date,
+                current_period_end,
                 now,
             ),
         )
@@ -116,9 +119,9 @@ def update_user_payment_profile(
         if subscription_status is not None:
             fields.append("subscription_status = ?")
             values.append(subscription_status)
-        if next_payment_date is not None:
-            fields.append("next_payment_date = ?")
-            values.append(next_payment_date)
+        if current_period_end is not None:
+            fields.append("current_period_end = ?")
+            values.append(current_period_end)
         if is_pro is not None:
             fields.append("is_pro = ?")
             values.append(1 if is_pro else 0)
@@ -129,7 +132,7 @@ def update_user_payment_profile(
         values.append(telegram_user_id)
 
         cur.execute(
-            f"UPDATE users SET {', '.join(fields)} WHERE user_id = ?",
+            f"UPDATE users SET {', '.join(fields)} WHERE telegram_user_id = ?",
             values,
         )
 
@@ -233,7 +236,7 @@ async def paystack_webhook(
 
     subscription_code = data.get("subscription_code") or subscription.get("subscription_code")
     email_token = data.get("email_token") or subscription.get("email_token")
-    next_payment_date = data.get("next_payment_date") or subscription.get("next_payment_date")
+    current_period_end = data.get("next_payment_date") or subscription.get("next_payment_date")
     status = data.get("status") or subscription.get("status")
 
     if event_type in {"charge.success", "invoice.update"} and telegram_user_id:
@@ -244,7 +247,7 @@ async def paystack_webhook(
             paystack_subscription_code=subscription_code,
             paystack_email_token=email_token,
             subscription_status=status or "active",
-            next_payment_date=next_payment_date,
+            current_period_end=current_period_end,
             is_pro=True,
         )
 
@@ -256,7 +259,7 @@ async def paystack_webhook(
             paystack_subscription_code=subscription_code,
             paystack_email_token=email_token,
             subscription_status=status or "active",
-            next_payment_date=next_payment_date,
+            current_period_end=current_period_end,
             is_pro=True,
         )
 
@@ -264,7 +267,7 @@ async def paystack_webhook(
         update_user_payment_profile(
             telegram_user_id=telegram_user_id,
             subscription_status=status or "inactive",
-            next_payment_date=next_payment_date,
+            current_period_end=current_period_end,
             is_pro=False,
         )
 
