@@ -1834,16 +1834,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data == "upgrade":
             text = (
                 "💎 *Cryp Pro*\n\n"
-                "Stop missing moves. Start catching them.\n\n"
-                "📊 *What you unlock:*\n"
-                "• Unlimited price alerts\n"
-                "• Advanced alerts (above / below)\n"
-                "• Real-time market updates\n"
-                "• Faster notifications\n"
-                "• Premium signals (coming soon)\n\n"
-                "⚡ Built for traders who want an edge.\n\n"
-                "💰 *One-time upgrade – instant access*\n\n"
-                "👇 Tap below to upgrade now"
+                "Upgrade your trading with powerful tools:\n\n"
+                "⚡ Unlimited alerts\n"
+                "📈 Premium signals\n"
+                "🧠 AI-powered insights\n\n"
+                "💰 *R99/month*\n\n"
+                "Stay subscribed to keep full access to Pro features.\n\n"
+                "👇 Tap below to upgrade"
             )
             await query.edit_message_text(
                 text=text,
