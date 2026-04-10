@@ -61,7 +61,7 @@ def create_or_update_user(telegram_user_id, username=None, email=None):
     cur = conn.cursor()
 
     cur.execute(
-        "SELECT telegram_user_id FROM users WHERE telegram_user_id = ?",
+        "SELECT telegram_user_id FROM users WHERE telegram_user_id = %s",
         (telegram_user_id,)
     )
     existing = cur.fetchone()
@@ -69,15 +69,15 @@ def create_or_update_user(telegram_user_id, username=None, email=None):
     if existing:
         cur.execute("""
             UPDATE users
-            SET username = COALESCE(?, username),
-                email = COALESCE(?, email),
+            SET username = COALESCE(%s, username),
+                email = COALESCE(%s, email),
                 updated_at = CURRENT_TIMESTAMP
-            WHERE telegram_user_id = ?
+            WHERE telegram_user_id = %s
         """, (username, email, telegram_user_id))
     else:
         cur.execute("""
             INSERT INTO users (telegram_user_id, username, email)
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
         """, (telegram_user_id, username, email))
 
     conn.commit()
@@ -89,7 +89,7 @@ def get_user(telegram_user_id):
     cur = conn.cursor()
 
     cur.execute(
-        "SELECT * FROM users WHERE telegram_user_id = ?",
+        "SELECT * FROM users WHERE telegram_user_id = %s",
         (telegram_user_id,)
     )
     row = cur.fetchone()
@@ -112,14 +112,14 @@ def set_user_pro(
 
     cur.execute("""
         UPDATE users
-        SET is_pro = ?,
-            subscription_status = COALESCE(?, subscription_status),
-            paystack_customer_code = COALESCE(?, paystack_customer_code),
-            paystack_subscription_code = COALESCE(?, paystack_subscription_code),
-            paystack_email_token = COALESCE(?, paystack_email_token),
-            current_period_end = COALESCE(?, current_period_end),
+        SET is_pro = %s,
+            subscription_status = COALESCE(%s, subscription_status),
+            paystack_customer_code = COALESCE(%s, paystack_customer_code),
+            paystack_subscription_code = COALESCE(%s, paystack_subscription_code),
+            paystack_email_token = COALESCE(%s, paystack_email_token),
+            current_period_end = COALESCE(%s, current_period_end),
             updated_at = CURRENT_TIMESTAMP
-        WHERE telegram_user_id = ?
+        WHERE telegram_user_id = %s
     """, (
         is_pro,
         subscription_status,
