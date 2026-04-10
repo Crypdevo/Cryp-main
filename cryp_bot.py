@@ -2400,7 +2400,6 @@ def validate_environment():
 def main():
     validate_environment()
     init_db()
-    migrate()
     load_pro_users()
     load_price_alerts()
     load_watchlists()
