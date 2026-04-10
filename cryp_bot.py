@@ -2047,7 +2047,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             print("CHECKOUT URL DEBUG:", checkout_url)
 
             await update.message.reply_text(
-                "💳 *Complete Your Subscription*\n\n"
+                "💳 *Complete Your Subscription TEST 123*\n\n"
                 f"Tap the link below to start your *R99/month* Cryp Pro subscription:\n\n"
                 f"{checkout_url}",
                 parse_mode="Markdown"
