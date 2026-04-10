@@ -159,7 +159,7 @@ def initialize_checkout(email: str, telegram_user_id: int):
 
     payload = {
         "email": email,
-        "plan": PAYSTACK_PLAN_CODE,
+        "plan_code": PAYSTACK_PLAN_CODE,
         "callback_url": PAYSTACK_CALLBACK_URL,
         "metadata": {
             "telegram_user_id": telegram_user_id,
