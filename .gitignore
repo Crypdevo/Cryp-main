@@ -1,0 +1,7 @@
+.env
+__pycache__/
+*.pyc
+alerts.txt
+pro_users.txt
+watchlists.txt
+cryp_data.db
