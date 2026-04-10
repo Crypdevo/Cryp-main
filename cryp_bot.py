@@ -2044,6 +2044,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"https://happy-joy-production-f73f.up.railway.app/paystack/checkout"
                     f"?telegram_user_id={user_id}&email={email}"
                 )
+            print("CHECKOUT URL DEBUG:", checkout_url)
 
             await update.message.reply_text(
                 "💳 *Complete Your Subscription*\n\n"
