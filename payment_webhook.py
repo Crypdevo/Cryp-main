@@ -2,13 +2,13 @@ import os
 import hmac
 import json
 import hashlib
-import sqlite3
 from datetime import datetime
 from typing import Optional
 
 import requests
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import RedirectResponse, JSONResponse
+from pg_db import init_pg_db, get_user_pg, create_or_update_user_pg, set_user_pro_pg, get_conn
 
 app = FastAPI()
 
@@ -22,38 +22,6 @@ if not PAYSTACK_SECRET_KEY:
     raise RuntimeError("Missing PAYSTACK_SECRET_KEY")
 if not PAYSTACK_PLAN_CODE:
     raise RuntimeError("Missing PAYSTACK_PLAN_CODE")
-
-
-def get_conn():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def ensure_payment_columns():
-    conn = get_conn()
-    cur = conn.cursor()
-
-    cur.execute("PRAGMA table_info(users)")
-    columns = {row["name"] for row in cur.fetchall()}
-
-    wanted = {
-        "email": "TEXT",
-        "paystack_customer_code": "TEXT",
-        "paystack_subscription_code": "TEXT",
-        "paystack_email_token": "TEXT",
-        "subscription_status": "TEXT",
-        "current_period_end": "TEXT",
-        "updated_at": "TEXT"
-    }
-
-    for col, col_type in wanted.items():
-        if col not in columns:
-            cur.execute(f"ALTER TABLE users ADD COLUMN {col} {col_type}")
-
-    conn.commit()
-    conn.close()
-
 
 def update_user_payment_profile(
     telegram_user_id: int,
@@ -69,12 +37,10 @@ def update_user_payment_profile(
     cur = conn.cursor()
 
     cur.execute(
-        "SELECT telegram_user_id FROM users WHERE telegram_user_id = ?",
+        "SELECT * FROM users WHERE telegram_user_id = %s",
         (telegram_user_id,)
     )
     existing = cur.fetchone()
-
-    now = datetime.utcnow().isoformat()
 
     if not existing:
         cur.execute(
@@ -83,9 +49,9 @@ def update_user_payment_profile(
                 telegram_user_id, username, email, is_pro,
                 paystack_customer_code, paystack_subscription_code,
                 paystack_email_token, subscription_status,
-                current_period_end, updated_at
+                current_period_end
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 telegram_user_id,
@@ -97,7 +63,6 @@ def update_user_payment_profile(
                 paystack_email_token,
                 subscription_status,
                 current_period_end,
-                now,
             ),
         )
     else:
@@ -105,40 +70,37 @@ def update_user_payment_profile(
         values = []
 
         if email is not None:
-            fields.append("email = ?")
+            fields.append("email = %s")
             values.append(email)
         if paystack_customer_code is not None:
-            fields.append("paystack_customer_code = ?")
+            fields.append("paystack_customer_code = %s")
             values.append(paystack_customer_code)
         if paystack_subscription_code is not None:
-            fields.append("paystack_subscription_code = ?")
+            fields.append("paystack_subscription_code = %s")
             values.append(paystack_subscription_code)
         if paystack_email_token is not None:
-            fields.append("paystack_email_token = ?")
+            fields.append("paystack_email_token = %s")
             values.append(paystack_email_token)
         if subscription_status is not None:
-            fields.append("subscription_status = ?")
+            fields.append("subscription_status = %s")
             values.append(subscription_status)
         if current_period_end is not None:
-            fields.append("current_period_end = ?")
+            fields.append("current_period_end = %s")
             values.append(current_period_end)
         if is_pro is not None:
-            fields.append("is_pro = ?")
+            fields.append("is_pro = %s")
             values.append(1 if is_pro else 0)
 
-        fields.append("updated_at = ?")
-        values.append(now)
-
+        fields.append("updated_at = CURRENT_TIMESTAMP")
         values.append(telegram_user_id)
 
         cur.execute(
-            f"UPDATE users SET {', '.join(fields)} WHERE telegram_user_id = ?",
+            f"UPDATE users SET {', '.join(fields)} WHERE telegram_user_id = %s",
             values,
         )
 
     conn.commit()
     conn.close()
-
 
 def verify_paystack_signature(raw_body: bytes, signature: Optional[str]) -> bool:
     if not signature:
@@ -178,7 +140,7 @@ def initialize_checkout(email: str, telegram_user_id: int):
 
 @app.on_event("startup")
 def startup():
-    ensure_payment_columns()
+    init_pg_db()
 
 
 @app.get("/health")
