@@ -2046,11 +2046,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             print("CHECKOUT URL DEBUG:", checkout_url)
 
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("💳 Open Checkout", url=checkout_url)]
+            ])
+
             await update.message.reply_text(
-                "💳 *Complete Your Subscription TEST 123*\n\n"
-                f"Tap the link below to start your *R99/month* Cryp Pro subscription:\n\n"
-                f"{checkout_url}",
-                parse_mode="Markdown"
+                "💳 *Complete Your Subscription*\n\n"
+                "Tap the button below to start your *R99/month* Cryp Pro subscription.",
+                parse_mode="Markdown",
+                reply_markup=keyboard
             )
             return
 
