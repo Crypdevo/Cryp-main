@@ -41,6 +41,7 @@ USDT_TRC20_ADDRESS = "TSZyLghQzxx3BcN3EnBzcD1uHhYtmf7xva"
 CRYPTO_PRICE_USDT = "5"
 LOCAL_PRICE_ZAR = "R99"
 INTL_PRICE_USD = "$5"
+LEMON_CHECKOUT_URL = os.getenv("LEMON_CHECKOUT_URL", "")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -1105,6 +1106,13 @@ def format_signal_line(text):
     else:
         return f"📊 *Market Impact:* {cleaned}" 
     
+def build_lemon_checkout_url(telegram_user_id: int):
+    if not LEMON_CHECKOUT_URL:
+        return None
+
+    separator = "&" if "?" in LEMON_CHECKOUT_URL else "?"
+    return f"{LEMON_CHECKOUT_URL}{separator}checkout[custom][telegram_user_id]={telegram_user_id}"    
+    
 def get_ai_daily_briefing():
     global AI_CACHE, AI_CACHE_TIME
 
@@ -1499,23 +1507,28 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if is_pro:
         text = (
-            "🚀 *Welcome to Cryp Pro*\n\n"
-            "Your premium access is active.\n\n"
-            "Pro plan includes:\n"
+            "💎 *Welcome to Cryp Pro*\n\n"
+            "Your premium crypto command center for real-time alerts, AI insights, and advanced market intelligence.\n\n"
+            "🔓 *Your Pro access includes:*\n"
             "• Unlimited active alerts\n"
-            "• Real-time market updates\n"
-            "• Faster notifications\n"
-            "• Premium features as they roll out\n\n"
+            "• AI Daily Briefing\n"
+            "• Advanced news & market summaries\n"
+            "• Faster, priority updates\n\n"
+            "⚡ Stay ahead of the market.\n\n"
             "Choose an option below 👇"
         )
     else:
         text = (
-            "📊 *Welcome to Cryp Free*\n\n"
-            "Track the market with simple crypto alerts.\n\n"
-            "Free plan includes:\n"
+            "📉 *Welcome to Cryp Free*\n\n"
+            "Your beginner-friendly crypto companion for alerts, news, and market insights.\n\n"
+            "🆓 *Free plan includes:*\n"
             "• Up to 2 active alerts\n"
-            "• Easy alert management\n"
-            "• Option to upgrade anytime\n\n"
+            "• Basic market tracking\n"
+            "• Core news coverage\n\n"
+            "🚀 Upgrade to Cryp Pro to unlock:\n"
+            "• Unlimited alerts\n"
+            "• AI-powered insights\n"
+            "• Premium market intelligence\n\n"
             "Choose an option below 👇"
         )
 
