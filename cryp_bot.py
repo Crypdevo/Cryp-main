@@ -338,18 +338,28 @@ def get_coin_analysis(symbol, is_pro=False):
         symbol = symbol.lower().strip()
 
         if symbol not in coin_map:
-            return "❌ Coin not supported yet. Try: BTC, ETH, SOL, XRP, DOGE, ADA, BNB"
+            return (
+                "❌ Coin not supported yet. Try: "
+                "BTC, ETH, SOL, XRP, DOGE, ADA, BNB, DOT, AVAX, MATIC, LINK, UNI, ATOM"
+            )
 
         coin_id = coin_map[symbol]
 
         url = f"https://api.coingecko.com/api/v3/coins/{coin_id}"
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
         data = response.json()
 
-        name = data["name"]
-        price = data["market_data"]["current_price"]["usd"]
-        change_24h = data["market_data"]["price_change_percentage_24h"]
+        market_data = data.get("market_data", {}) or {}
+        current_price = market_data.get("current_price", {}) or {}
+
+        name = data.get("name", symbol.upper())
+        price = current_price.get("usd")
+        change_24h = market_data.get("price_change_percentage_24h")
         market_cap_rank = data.get("market_cap_rank", "N/A")
+
+        if price is None:
+            return f"⚠️ {name} price data is temporarily unavailable. Please try again shortly."
 
         if change_24h is None:
             trend = "➖ Neutral"
@@ -368,11 +378,13 @@ def get_coin_analysis(symbol, is_pro=False):
             outlook = "Price is moving sideways for now."
             pro_insight = "Sideways movement usually means the market is waiting for a stronger catalyst before choosing direction."
 
+        change_text = f"{change_24h:+.2f}%" if change_24h is not None else "N/A"
+
         analysis = f"""
 🔍 *{name} Analysis*
 
 💵 Price: ${price:,.4f}
-📊 24h Change: {change_24h:+.2f}%
+📊 24h Change: {change_text}
 🏆 Market Cap Rank: #{market_cap_rank}
 📈 Trend: {trend}
 
