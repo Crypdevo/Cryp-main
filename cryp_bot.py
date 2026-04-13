@@ -1218,23 +1218,25 @@ def get_top_movers():
             "price_change_percentage": "24h"
         }
 
-        response = requests.get(url, params=params)
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
         data = response.json()
 
-        if not data:
+        if not isinstance(data, list) or not data:
+            print("Top movers skipped: unexpected response", data)
             return "⚠️ No top movers available right now."
 
         movers_text = "🚀 *Top Movers (24h)*\n\n"
 
         count = 0
         for coin in data:
-            symbol = coin["symbol"].upper()
+            symbol = coin.get("symbol")
             change = coin.get("price_change_percentage_24h_in_currency")
 
-            if change is None:
+            if not symbol or change is None:
                 continue
 
-            movers_text += f"{count + 1}. {symbol} {change:+.2f}%\n"
+            movers_text += f"{count + 1}. {symbol.upper()} {change:+.2f}%\n"
             count += 1
 
             if count == 5:
@@ -1253,15 +1255,15 @@ def get_breaking_alert():
     global LAST_BREAKING_ALERTS
 
     try:
-        url = "https://api.coingecko.com/api/v3/simple/price"
-        params = {
-            "ids": "bitcoin,ethereum,solana",
-            "vs_currencies": "usd",
-            "include_24hr_change": "true"
-        }
+        data = get_cached_market_data()
 
-        response = requests.get(url, params=params)
-        data = response.json()
+        if not data:
+            return None
+
+        required_coins = ["bitcoin", "ethereum", "solana"]
+        if not all(coin in data for coin in required_coins):
+            print("Breaking alert skipped: missing coin data", data)
+            return None
 
         coin_map = {
             "BTC": "bitcoin",
@@ -1272,8 +1274,12 @@ def get_breaking_alert():
         alerts = []
 
         for symbol, coin_id in coin_map.items():
-            price = data[coin_id]["usd"]
-            change = data[coin_id]["usd_24h_change"]
+            coin_data = data.get(coin_id, {})
+            price = coin_data.get("usd")
+            change = coin_data.get("usd_24h_change")
+
+            if price is None or change is None:
+                continue
 
             if change >= 5:
                 direction = "🚀 Breaking Up"
