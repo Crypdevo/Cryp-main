@@ -2021,7 +2021,7 @@ After payment, tap *I've Paid* and send your TXID.
                     "Your access is now active for 30 days.\n\n"
                     "🔗 Private Access Link:\n"
                     f"{CRYP_PRO_LINK}\n\n"
-                    "Tap the link below to join the premium channel."
+                    "Tap the link to join the premium channel."
                 )
             )
 
