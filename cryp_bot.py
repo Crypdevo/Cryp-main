@@ -1939,8 +1939,8 @@ After payment, tap *I've Paid* and send your TXID.
                 reply_markup=upgrade_keyboard()
             )
 
-        elif query.data.startswith("approve_"):
-            approved_user_id = int(query.data.split("_")[1])
+        elif query.data.startswith("approve_user_"):
+            approved_user_id = int(query.data.replace("approve_user_", ""))
 
             if approved_user_id not in pro_users:
                 pro_users.add(approved_user_id)
@@ -1995,7 +1995,7 @@ After payment, tap *I've Paid* and send your TXID.
             )
 
             approve_button = InlineKeyboardMarkup([
-                [InlineKeyboardButton("✅ Approve User", callback_data=f"approve_{paid_user_id}")]
+                InlineKeyboardButton("✅ Approve User", callback_data=f"approve_user_{paid_user_id}")
             ])
 
             await context.bot.send_message(
