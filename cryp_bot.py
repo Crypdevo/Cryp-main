@@ -17,6 +17,7 @@ from telegram.ext import (
 )
 
 from db import create_or_update_user
+from db import create_crypto_payment
 from db import get_user
 from db import init_db as init_main_db
 from db import set_user_pro
@@ -30,6 +31,10 @@ PAYMENT_LINK = os.getenv("PAYMENT_LINK", "https://t.me/Crypdaman")
 CRYP_PRO_LINK = os.getenv("CRYP_PRO_LINK", "https://t.me/+HCrmHvpLg_kzMGY0")
 CRYP_PRO_CHANNEL_ID = int(os.getenv("CRYP_PRO_CHANNEL_ID", "-1003800067003"))
 ADMIN_ID = int(os.getenv("ADMIN_ID", "7057199314"))
+USDT_TRC20_ADDRESS = "TSZyLghQzxx3BcN3EnBzcD1uHhYtmf7xva"
+CRYPTO_PRICE_USDT = "5"
+LOCAL_PRICE_ZAR = "R99"
+INTL_PRICE_USD = "$5"
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -277,8 +282,16 @@ def back_menu_keyboard():
 
 def upgrade_keyboard():
     keyboard = [
-        [InlineKeyboardButton("💳 Start Subscription", callback_data="pay_now")],
+        [InlineKeyboardButton("💸 Pay with USDT (TRC20)", callback_data="pay_crypto")],
+        [InlineKeyboardButton("💳 Pay with Card", callback_data="pay_now")],
         [InlineKeyboardButton("⬅ Back to Menu", callback_data="back_to_menu")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+def crypto_payment_keyboard():
+    keyboard = [
+        [InlineKeyboardButton("✅ I've Paid", callback_data="crypto_paid")],
+        [InlineKeyboardButton("⬅ Back to Upgrade", callback_data="upgrade")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
@@ -1847,6 +1860,33 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="Markdown"
             )
             
+        elif query.data == "pay_crypto":
+            message = f"""
+💎 *Cryp Pro — Crypto Payment*
+
+Upgrade to Cryp Pro for:
+- {INTL_PRICE_USD} international
+- {LOCAL_PRICE_ZAR} local card pricing later
+- *Crypto checkout today:* {CRYPTO_PRICE_USDT} USDT
+
+Send exactly *{CRYPTO_PRICE_USDT} USDT* using the *TRC20 (TRON)* network to:
+
+`{USDT_TRC20_ADDRESS}`
+
+⚠️ *Important:*
+- Send *USDT only*
+- Network must be *TRC20*
+- Do *not* send ERC20, BEP20, Polygon, Base, or other networks
+- Wrong network may result in lost funds
+
+After payment, tap *I've Paid* and send your TXID.
+"""
+            await query.edit_message_text(
+                text=message,
+                reply_markup=crypto_payment_keyboard(),
+                parse_mode="Markdown"
+            )    
+            
         elif query.data == "pay_now":
             context.user_data["awaiting_payment_email"] = True
 
@@ -1923,6 +1963,21 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text(
                 text="✅ User approved successfully"
             )
+            
+        elif query.data == "crypto_paid":
+            context.user_data["awaiting_crypto_txid"] = True
+
+            await query.edit_message_text(
+                text=(
+                    "✅ *Crypto payment started*\n\n"
+                    "Please reply with your *TXID / transaction hash*.\n\n"
+                    "Example:\n"
+                    "`abc123xyz456...`\n\n"
+                    "Once submitted, your payment will be marked for review."
+                ),
+                parse_mode="Markdown",
+                reply_markup=back_menu_keyboard()
+            )    
 
         elif query.data == "i_paid":
             paid_user = query.from_user
@@ -2027,6 +2082,44 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = raw_text.lower()
 
         supported_coins = ["btc", "eth", "sol", "xrp", "doge", "ada", "bnb"]
+        
+                # NEW: handle crypto TXID submission
+        if context.user_data.get("awaiting_crypto_txid"):
+            txid = raw_text.strip()
+
+            context.user_data["awaiting_crypto_txid"] = False
+
+            create_crypto_payment(
+                telegram_user_id=user_id,
+                telegram_username=username,
+                network="TRC20",
+                currency="USDT",
+                amount_expected=5,
+                wallet_address=USDT_TRC20_ADDRESS,
+                txid=txid
+            )
+
+            # Notify admin
+            admin_message = (
+                "🚨 New Crypto Payment Submission\n\n"
+                f"User: @{username if username else 'No username'}\n"
+                f"User ID: {user_id}\n"
+                f"Amount: 5 USDT (TRC20)\n"
+                f"TXID:\n{txid}"
+            )
+
+            await context.bot.send_message(
+                chat_id=ADMIN_ID,
+                text=admin_message
+            )
+
+            await update.message.reply_text(
+                "✅ Payment submitted successfully!\n\n"
+                "Your transaction is now under review.\n"
+                "You will be upgraded to Cryp Pro once confirmed."
+            )
+
+            return
 
         # NEW: handle payment email capture
         if context.user_data.get("awaiting_payment_email"):

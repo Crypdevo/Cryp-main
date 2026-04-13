@@ -260,3 +260,106 @@ def set_user_pro(
 
     conn.commit()
     conn.close()
+    
+def create_crypto_payment(
+    telegram_user_id,
+    telegram_username,
+    network,
+    currency,
+    amount_expected,
+    wallet_address,
+    txid
+):
+    conn = get_conn()
+    cur = conn.cursor()
+
+    execute(
+        cur,
+        """
+        INSERT INTO crypto_payments (
+            telegram_user_id,
+            telegram_username,
+            network,
+            currency,
+            amount_expected,
+            wallet_address,
+            txid,
+            status
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            telegram_user_id,
+            telegram_username,
+            network,
+            currency,
+            amount_expected,
+            wallet_address,
+            txid,
+            "pending"
+        )
+    )
+
+    conn.commit()
+    conn.close()
+
+
+def get_pending_crypto_payments():
+    conn = get_conn()
+    cur = conn.cursor()
+
+    execute(
+        cur,
+        """
+        SELECT *
+        FROM crypto_payments
+        WHERE status = %s
+        ORDER BY created_at ASC
+        """,
+        ("pending",)
+    )
+    rows = cur.fetchall()
+
+    conn.close()
+    return rows
+
+
+def approve_crypto_payment(payment_id):
+    conn = get_conn()
+    cur = conn.cursor()
+
+    execute(
+        cur,
+        """
+        UPDATE crypto_payments
+        SET status = %s,
+            approved_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = %s
+        """,
+        ("approved", payment_id)
+    )
+
+    conn.commit()
+    conn.close()
+
+
+def reject_crypto_payment(payment_id, notes=None):
+    conn = get_conn()
+    cur = conn.cursor()
+
+    execute(
+        cur,
+        """
+        UPDATE crypto_payments
+        SET status = %s,
+            rejected_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP,
+            notes = COALESCE(%s, notes)
+        WHERE id = %s
+        """,
+        ("rejected", notes, payment_id)
+    )
+
+    conn.commit()
+    conn.close()    
