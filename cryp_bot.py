@@ -1967,31 +1967,6 @@ After payment, tap *I've Paid* and send your TXID.
                 reply_markup=upgrade_keyboard()
             )
 
-        elif query.data.startswith("approve_user_"):
-            approved_user_id = int(query.data.replace("approve_user_", ""))
-
-            if approved_user_id not in pro_users:
-                pro_users.add(approved_user_id)
-                save_pro_users()
-
-            create_or_update_user(approved_user_id)
-
-            set_user_pro(
-                telegram_user_id=approved_user_id,
-                is_pro=1,
-                subscription_status="manually_approved"
-            )
-
-            await context.bot.send_message(
-                chat_id=approved_user_id,
-                text=(
-                    "🎉 You have been approved!\n\n"
-                    "Welcome to Cryp Pro 🚀\n\n"
-                    "Here is your private access link:\n"
-                    f"{CRYP_PRO_LINK}"
-                )
-            )
-
             await query.edit_message_text(
                 text="✅ User approved successfully"
             )
@@ -2010,36 +1985,6 @@ After payment, tap *I've Paid* and send your TXID.
                 parse_mode="Markdown",
                 reply_markup=back_menu_keyboard()
             )    
-
-        elif query.data == "i_paid":
-            paid_user = query.from_user
-            paid_username = f"@{paid_user.username}" if paid_user.username else "No username"
-            paid_user_id = paid_user.id
-
-            admin_message = (
-                "🚨 New Payment Request\n\n"
-                f"User: {paid_username}\n"
-                f"User ID: {paid_user_id}"
-            )
-
-            approve_button = InlineKeyboardMarkup([
-                InlineKeyboardButton("✅ Approve User", callback_data=f"approve_user_{paid_user_id}")
-            ])
-
-            await context.bot.send_message(
-                chat_id=ADMIN_ID,
-                text=admin_message,
-                reply_markup=approve_button
-            )
-
-            await query.edit_message_text(
-                text=(
-                    "✅ Payment request sent!\n\n"
-                    "Please wait while your payment is reviewed.\n"
-                    "You will be approved shortly."
-                ),
-                reply_markup=back_menu_keyboard()
-            )
             
         elif query.data.startswith("approve_crypto_"):
             if query.from_user.id != ADMIN_ID:
