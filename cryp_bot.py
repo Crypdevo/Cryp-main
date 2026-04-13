@@ -18,7 +18,7 @@ from telegram.ext import (
 
 from db import create_or_update_user
 from db import get_user
-from db import init_db
+from db import init_db as init_main_db
 from db import set_user_pro
 from migrate_pro_users import migrate
 
@@ -2360,7 +2360,7 @@ def get_db_connection():
     return sqlite3.connect(DB_FILE)
 
 
-def init_db():
+def init_alerts_db():
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -2399,7 +2399,8 @@ def validate_environment():
 
 def main():
     validate_environment()
-    init_db()
+    init_main_db()
+    init_alerts_db()
     load_pro_users()
     load_price_alerts()
     load_watchlists()
