@@ -289,6 +289,11 @@ def back_menu_keyboard():
     ]
     return InlineKeyboardMarkup(keyboard)
 
+def back_to_main_keyboard():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("⬅ Back to Menu", callback_data="back_to_menu")]
+    ])
+
 def upgrade_keyboard():
     keyboard = [
         [InlineKeyboardButton("💸 Pay with USDT (TRC20)", callback_data="pay_crypto")],
@@ -1706,7 +1711,18 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data == "daily_briefing":
             if not is_pro:
                 await query.edit_message_text(
-                    "🔒 Daily Briefing is a *Cryp Pro* feature.",
+                    text=(
+                        "🔒 *Cryp Pro Feature*\n\n"
+                        "The *AI Daily Briefing* gives you a quick, professional overview of the market — powered by real-time headlines and AI analysis.\n\n"
+                        
+                        "🧠 *What you’re missing:*\n"
+                        "• Market sentiment (Bullish / Bearish)\n"
+                        "• Key narratives driving the market\n"
+                        "• Opportunities to watch\n"
+                        "• Risks to be aware of\n\n"
+                        
+                        "🚀 Upgrade to Cryp Pro to unlock your daily edge."
+                    ),
                     parse_mode="Markdown",
                     reply_markup=InlineKeyboardMarkup([
                         [InlineKeyboardButton("💎 Upgrade to Pro", callback_data="upgrade_pro")],
@@ -1726,7 +1742,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text=briefing,
                 parse_mode="Markdown",
                 reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("⬅️ Back to News", callback_data="news_menu")]
+                    [InlineKeyboardButton("⬅ Back to Menu", callback_data="back_to_menu")]
                 ])
             )
 
