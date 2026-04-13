@@ -2144,22 +2144,27 @@ After payment, tap *I've Paid* and send your TXID.
 
         elif query.data == "upgrade_pro":
             text = (
-                "Upgrade to Cryp Pro 🚀\n\n"
-                "Cryp Pro gives you:\n"
-                "• Faster alerts\n"
-                "• More coins covered\n"
-                "• Premium watchlist updates\n"
-                "• Better trade breakdowns\n\n"
-                "Price: R99/month\n\n"
-                "Tap Pay Now to join Cryp Pro."
+                "💎 *Upgrade to Cryp Pro*\n\n"
+                "Unlock the full power of Cryp and stay ahead of the market with premium tools.\n\n"
+                
+                "🚀 *What you get:*\n"
+                "• Unlimited price alerts\n"
+                "• AI Daily Briefing\n"
+                "• Advanced market insights\n"
+                "• Premium news summaries\n"
+                "• Faster, real-time updates\n\n"
+                
+                "📊 *Built for traders who want an edge.*\n\n"
+                "👥 Trusted by growing crypto traders\n\n"
+                
+                "💰 *Pricing:*\n"
+                "R99/month or $5/month\n\n"
+                
+                "⚡ Upgrade now and unlock your full trading advantage."
             )
             await query.edit_message_text(
                 text=text,
                 reply_markup=upgrade_keyboard()
-            )
-
-            await query.edit_message_text(
-                text="✅ User approved successfully"
             )
             
         elif query.data == "crypto_paid":
