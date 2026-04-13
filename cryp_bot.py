@@ -25,7 +25,7 @@ from migrate_pro_users import migrate
 from db import approve_crypto_payment
 from db import reject_crypto_payment
 from db import get_pending_crypto_payments
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from db import expire_user_pro
 from db import get_expired_pro_users
 
@@ -1207,6 +1207,20 @@ def get_premium_insight():
         print("Error fetching premium insight:", e)
         return "⚠️ Failed to fetch premium insight."
     
+def format_expiry_datetime(expiry_value):
+    if not expiry_value:
+        return "Unknown"
+
+    try:
+        dt = datetime.fromisoformat(expiry_value)
+
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+
+        return dt.strftime("%d %b %Y, %H:%M UTC")
+    except Exception:
+        return str(expiry_value)    
+    
 def get_cached_market_data():
     global MARKET_CACHE, MARKET_CACHE_TIME
 
@@ -1909,21 +1923,33 @@ After payment, tap *I've Paid* and send your TXID.
 
         elif query.data == "pro_status":
             if is_pro:
+                expiry_text = format_expiry_datetime(
+                    user["pro_expires_at"] if user else None
+                )
+
                 text = (
-                    "💎 Cryp Pro Unlocked\n\n"
-                    "Your premium access is active.\n"
+                    "💎 *Cryp Pro Unlocked*\n\n"
+                    "Your premium access is active.\n\n"
+                    f"⏳ *Expires:* `{expiry_text}`\n\n"
                     "Enjoy all pro features 🚀"
+                )
+
+                await query.edit_message_text(
+                    text=text,
+                    reply_markup=back_menu_keyboard(),
+                    parse_mode="Markdown"
                 )
             else:
                 text = (
-                    "🔓 You are currently on Cryp Free.\n\n"
+                    "🔓 *You are currently on Cryp Free*\n\n"
                     "Upgrade to unlock premium features 🚀"
                 )
 
-            await query.edit_message_text(
-                text=text,
-                reply_markup=back_menu_keyboard()
-            )
+                await query.edit_message_text(
+                    text=text,
+                    reply_markup=back_menu_keyboard(),
+                    parse_mode="Markdown"
+                )
 
         elif query.data == "upgrade_pro":
             text = (
@@ -2660,7 +2686,7 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.job_queue.run_repeating(check_price_alerts, interval=30, first=5)
-    app.job_queue.run_repeating(check_expired_pro_users, interval=30, first=10)
+    app.job_queue.run_repeating(check_expired_pro_users, interval=300, first=10)
     app.job_queue.run_repeating(send_pro_daily_update, interval=3600, first=10)
     app.job_queue.run_repeating(send_market_snapshot, interval=3600, first=15)
     app.job_queue.run_repeating(send_top_movers, interval=14400, first=20)
