@@ -1530,6 +1530,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 return
 
+            await query.edit_message_text(
+                text="⏳ Generating your Daily Briefing...",
+                parse_mode="Markdown"
+            )
+
             briefing = get_ai_daily_briefing()
 
             await query.edit_message_text(
@@ -1569,6 +1574,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
         elif query.data == "btc_news":
+            await query.edit_message_text(
+                text="⏳ Loading BTC news...",
+                parse_mode="Markdown"
+            )
+
             news = get_btc_news(user_id)
             await query.edit_message_text(
                 text=news,
@@ -1579,6 +1589,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
         elif query.data == "eth_news":
+            await query.edit_message_text(
+                text="⏳ Loading ETH news...",
+                parse_mode="Markdown"
+            )
+
             news = get_eth_news(user_id)
             await query.edit_message_text(
                 text=news,
@@ -1589,6 +1604,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
         elif query.data == "market_news":
+            await query.edit_message_text(
+                text="⏳ Loading market news...",
+                parse_mode="Markdown"
+            )
+
             news = get_crypto_news(user_id)
             await query.edit_message_text(
                 text=news,
@@ -1599,6 +1619,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
         elif query.data == "altcoin_news":
+            await query.edit_message_text(
+                text="⏳ Loading altcoin news...",
+                parse_mode="Markdown"
+            )
+
             news = get_altcoin_news(user_id)
             await query.edit_message_text(
                 text=news,
@@ -1612,6 +1637,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not is_pro:
                 await query.answer("🔒 This is a Cryp Pro feature.", show_alert=True)
                 return
+
+            await query.edit_message_text(
+                text="⏳ Building your AI market summary...",
+                parse_mode="Markdown"
+            )
 
             summary = get_ai_market_summary()
             await query.edit_message_text(
