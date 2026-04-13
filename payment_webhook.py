@@ -17,6 +17,9 @@ PAYSTACK_PLAN_CODE = os.getenv("PAYSTACK_PLAN_CODE")
 PAYSTACK_CALLBACK_URL = os.getenv("PAYSTACK_CALLBACK_URL", "")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.getenv("CRYP_DB_PATH", os.path.join(BASE_DIR, "cryp.db"))
+LEMON_WEBHOOK_SECRET = os.getenv("LEMON_WEBHOOK_SECRET", "")
+LEMON_STORE_URL = os.getenv("LEMON_STORE_URL", "")
+LEMON_CHECKOUT_URL = os.getenv("LEMON_CHECKOUT_URL", "")
 
 if not PAYSTACK_SECRET_KEY:
     raise RuntimeError("Missing PAYSTACK_SECRET_KEY")
@@ -110,6 +113,18 @@ def verify_paystack_signature(raw_body: bytes, signature: Optional[str]) -> bool
         PAYSTACK_SECRET_KEY.encode("utf-8"),
         raw_body,
         hashlib.sha512
+    ).hexdigest()
+
+    return hmac.compare_digest(computed, signature)
+
+def verify_lemon_signature(raw_body: bytes, signature: Optional[str]) -> bool:
+    if not LEMON_WEBHOOK_SECRET or not signature:
+        return False
+
+    computed = hmac.new(
+        LEMON_WEBHOOK_SECRET.encode("utf-8"),
+        raw_body,
+        hashlib.sha256
     ).hexdigest()
 
     return hmac.compare_digest(computed, signature)
@@ -212,6 +227,8 @@ async def paystack_webhook(
             current_period_end=current_period_end,
             is_pro=True,
         )
+        
+        
 
     elif event_type == "subscription.create" and telegram_user_id:
         update_user_payment_profile(
@@ -234,3 +251,37 @@ async def paystack_webhook(
         )
 
     return {"ok": True}
+
+@app.post("/lemon/webhook")
+async def lemon_webhook(
+    request: Request,
+    x_signature: Optional[str] = Header(default=None)
+):
+    raw_body = await request.body()
+
+    if not verify_lemon_signature(raw_body, x_signature):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+
+    event = json.loads(raw_body.decode("utf-8"))
+    meta = event.get("meta", {}) or {}
+    data = event.get("data", {}) or {}
+    attributes = data.get("attributes", {}) or {}
+    custom_data = meta.get("custom_data", {}) or {}
+
+    telegram_user_id = custom_data.get("telegram_user_id")
+
+    if telegram_user_id is not None:
+        try:
+            telegram_user_id = int(telegram_user_id)
+        except Exception:
+            telegram_user_id = None
+
+    event_name = request.headers.get("X-Event-Name", "")
+
+    print("Lemon webhook received:", event_name, telegram_user_id)
+
+    return {
+        "ok": True,
+        "event_name": event_name,
+        "telegram_user_id": telegram_user_id
+    }
