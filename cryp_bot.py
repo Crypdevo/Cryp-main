@@ -124,13 +124,19 @@ def get_watchlist_with_prices(user_id):
             return None
 
         coin_map = {
-            "BTC": "bitcoin",
-            "ETH": "ethereum",
-            "SOL": "solana",
-            "XRP": "ripple",
-            "DOGE": "dogecoin",
-            "ADA": "cardano",
-            "BNB": "binancecoin"
+            "btc": "bitcoin",
+            "eth": "ethereum",
+            "sol": "solana",
+            "xrp": "ripple",
+            "doge": "dogecoin",
+            "ada": "cardano",
+            "bnb": "binancecoin",
+            "dot": "polkadot",
+            "avax": "avalanche-2",
+            "matic": "matic-network",
+            "link": "chainlink",
+            "uni": "uniswap",
+            "atom": "cosmos"
         }
 
         ids = ",".join(coin_map[c] for c in coins if c in coin_map)
@@ -259,6 +265,7 @@ def main_menu_keyboard(user_id):
             [InlineKeyboardButton("📊 Market Snapshot", callback_data="market_snapshot")],
             [InlineKeyboardButton("📰 Daily Briefing", callback_data="daily_briefing")],
             [InlineKeyboardButton("🗞️ News", callback_data="news_menu")],
+            [InlineKeyboardButton("📊 Coin Analysis", callback_data="analysis_menu")],
             [InlineKeyboardButton("📈 Market Update", callback_data="market_update")],
             [InlineKeyboardButton("➕ Create Alert", callback_data="set_alert")],
             [InlineKeyboardButton("📂 View Alerts", callback_data="view_alerts")],
@@ -272,6 +279,7 @@ def main_menu_keyboard(user_id):
             [InlineKeyboardButton("📊 Market Snapshot", callback_data="market_snapshot")],
             [InlineKeyboardButton("📰 Daily Briefing", callback_data="daily_briefing")],
             [InlineKeyboardButton("🗞️ News", callback_data="news_menu")],
+            [InlineKeyboardButton("📊 Coin Analysis", callback_data="analysis_menu")],
             [InlineKeyboardButton("📈 Market Update", callback_data="market_update")],
             [InlineKeyboardButton("➕ Create Alert", callback_data="set_alert")],
             [InlineKeyboardButton("📂 View Alerts", callback_data="view_alerts")],
@@ -2048,6 +2056,91 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"💰 Enter the price for {coin.upper()} ({condition}):\n\nExample: 70000",
                 reply_markup=back_menu_keyboard()
             )
+            
+        elif query.data == "analysis_menu":
+            text = (
+                "📊 *Coin Analysis*\n\n"
+                "Get a quick breakdown of trend, price action, and market outlook.\n\n"
+                "Select a coin below 👇"
+            )
+
+            keyboard = [
+                [
+                    InlineKeyboardButton("₿ BTC", callback_data="analyze_btc"),
+                    InlineKeyboardButton("Ξ ETH", callback_data="analyze_eth")
+                ],
+                [
+                    InlineKeyboardButton("◎ SOL", callback_data="analyze_sol"),
+                    InlineKeyboardButton("✕ XRP", callback_data="analyze_xrp")
+                ],
+                [
+                    InlineKeyboardButton("🐶 DOGE", callback_data="analyze_doge"),
+                    InlineKeyboardButton("◈ ADA", callback_data="analyze_ada")
+                ],
+                [
+                    InlineKeyboardButton("🟡 BNB", callback_data="analyze_bnb")
+                ],
+                [
+                    InlineKeyboardButton("➕ More Coins", callback_data="more_coins")
+                ],
+                [
+                    InlineKeyboardButton("⬅ Back to Menu", callback_data="back_to_menu")
+                ]
+            ]
+
+            await query.edit_message_text(
+                text=text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode="Markdown"
+            ) 
+            
+        elif query.data == "more_coins":
+            text = (
+                "📊 *More Coins*\n\n"
+                "Select a coin to analyze 👇"
+            )
+
+            keyboard = [
+                [
+                    InlineKeyboardButton("🔵 DOT", callback_data="analyze_dot"),
+                    InlineKeyboardButton("⚫ AVAX", callback_data="analyze_avax")
+                ],
+                [
+                    InlineKeyboardButton("🟣 MATIC", callback_data="analyze_matic"),
+                    InlineKeyboardButton("🟢 LINK", callback_data="analyze_link")
+                ],
+                [
+                    InlineKeyboardButton("🔶 UNI", callback_data="analyze_uni"),
+                    InlineKeyboardButton("⚙️ ATOM", callback_data="analyze_atom")
+                ],
+                [
+                    InlineKeyboardButton("⬅ Back to Analysis", callback_data="analysis_menu")
+                ]
+            ]
+
+            await query.edit_message_text(
+                text=text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode="Markdown"
+            )    
+            
+        elif query.data.startswith("analyze_"):
+            coin = query.data.replace("analyze_", "")
+
+            await query.edit_message_text(
+                text="🧠 Analyzing coin data...",
+                parse_mode="Markdown"
+            )
+
+            analysis = get_coin_analysis(coin, is_pro=is_pro)
+
+            await query.edit_message_text(
+                text=analysis,
+                parse_mode="Markdown",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("⬅ Back to Analysis", callback_data="analysis_menu")]
+                ])
+            )       
 
         elif query.data == "market_update":
             if not is_pro:
