@@ -483,9 +483,31 @@ SOL: {trend(sol_change)}
 
         return snapshot
 
+    except requests.exceptions.HTTPError as e:
+        status_code = e.response.status_code if e.response is not None else None
+
+        if status_code == 429:
+            if MARKET_CACHE:
+                print("CoinGecko rate-limited. Using cached market data.")
+                return MARKET_CACHE
+
+            print("CoinGecko rate-limited and no cache is available yet.")
+            return None
+
+        print("Error fetching cached market data:", e)
+
+        if MARKET_CACHE:
+            return MARKET_CACHE
+
+        return None
+
     except Exception as e:
-        print("Error fetching market data:", e)
-        return "⚠️ Failed to fetch market data. Try again later."
+        print("Error fetching cached market data:", e)
+
+        if MARKET_CACHE:
+            return MARKET_CACHE
+
+        return None
     
 import feedparser
 
@@ -2487,6 +2509,8 @@ async def check_price_alerts(context: ContextTypes.DEFAULT_TYPE):
 
         except Exception as e:
             print("check_price_alerts error:", e)
+            
+            
 async def show_alerts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_alerts = []
@@ -2505,6 +2529,8 @@ async def show_alerts(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message += f"{i}. {alert['coin']} at ${alert['target']}\n"
 
     await update.message.reply_text(message)
+    
+    
 async def delete_alert(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_alerts = []
@@ -2538,6 +2564,12 @@ async def delete_alert(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         f"✅ Deleted alert: {alert_to_delete['coin']} at ${alert_to_delete['target']}"
     )
+    
+async def refresh_market_cache_job(context: ContextTypes.DEFAULT_TYPE):
+    try:
+        get_cached_market_data()
+    except Exception as e:
+        print("Market cache refresh job error:", e)    
 
 def get_db_connection():
     return sqlite3.connect(DB_FILE)
@@ -2663,6 +2695,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.job_queue.run_repeating(check_price_alerts, interval=30, first=5)
     app.job_queue.run_repeating(check_expired_pro_users, interval=300, first=10)
+    app.job_queue.run_repeating(refresh_market_cache_job, interval=120, first=5)
     app.job_queue.run_repeating(send_pro_daily_update, interval=3600, first=10)
     app.job_queue.run_repeating(send_market_snapshot, interval=3600, first=15)
     app.job_queue.run_repeating(send_top_movers, interval=14400, first=20)
