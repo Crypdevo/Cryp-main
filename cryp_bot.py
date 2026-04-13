@@ -57,6 +57,8 @@ WATCHLISTS = {}
 LAST_BREAKING_ALERTS = {}
 MARKET_CACHE = {}
 MARKET_CACHE_TIME = 0
+AI_CACHE = {}
+AI_CACHE_TIME = {}
 
 def load_watchlists():
     global WATCHLISTS
@@ -1008,6 +1010,19 @@ def format_signal_line(text):
         return f"📊 *Market Impact:* {cleaned}" 
     
 def get_ai_daily_briefing():
+    global AI_CACHE, AI_CACHE_TIME
+
+    CACHE_KEY = "daily_briefing"
+    CACHE_SECONDS = 300  # 5 minutes
+    current_time = time.time()
+
+    # Return cached result if still valid
+    if (
+        CACHE_KEY in AI_CACHE
+        and (current_time - AI_CACHE_TIME.get(CACHE_KEY, 0)) < CACHE_SECONDS
+    ):
+        return AI_CACHE[CACHE_KEY]
+
     try:
         url = "https://cointelegraph.com/rss"
         response = requests.get(url, timeout=5)
@@ -1073,10 +1088,18 @@ Risk: <1 short sentence>
         briefing += "━━━━━━━━━━━━━━\n"
         briefing += "💎 *Cryp Pro Intelligence*"
 
+        # Save to cache
+        AI_CACHE[CACHE_KEY] = briefing
+        AI_CACHE_TIME[CACHE_KEY] = current_time
+
         return briefing
 
     except Exception as e:
         print("Daily briefing error:", e)
+
+        if CACHE_KEY in AI_CACHE:
+            return AI_CACHE[CACHE_KEY]
+
         return "⚠️ Failed to generate daily briefing."                         
     
 def get_top_movers():
