@@ -2079,18 +2079,19 @@ After payment, tap *I've Paid* and send your TXID.
             )    
             
         elif query.data == "pay_now":
-            context.user_data["awaiting_payment_email"] = True
-
             await query.edit_message_text(
                 text=(
-                    "📧 *Enter your email address*\n\n"
-                    "Reply with the email you want to use for your monthly subscription.\n\n"
-                    "Example:\n"
-                    "`you@example.com`"
+                    "💳 *Card Subscriptions Coming Soon*\n\n"
+                    "We’re currently finalising our new automated card subscription system.\n\n"
+                    "For now, you can upgrade instantly using *USDT (TRC20)*.\n\n"
+                    "Tap below to go back and use crypto payment."
                 ),
                 parse_mode="Markdown",
-                reply_markup=back_menu_keyboard()
-            )    
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("💸 Pay with USDT (TRC20)", callback_data="pay_crypto")],
+                    [InlineKeyboardButton("⬅ Back to Upgrade", callback_data="upgrade")]
+                ])
+            )   
 
         elif query.data == "pro_status":
             if is_pro:

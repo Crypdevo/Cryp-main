@@ -59,6 +59,11 @@ def init_db():
             paystack_email_token TEXT,
             subscription_status TEXT,
             current_period_end TEXT,
+            lemon_customer_id TEXT,
+            lemon_subscription_id TEXT,
+            lemon_order_id TEXT,
+            lemon_product_id TEXT,
+            lemon_variant_id TEXT,
             pro_expires_at TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -104,6 +109,31 @@ def init_db():
             cur.execute("ALTER TABLE users ADD COLUMN pro_expires_at TEXT")
         except Exception:
             pass
+        
+        try:
+            cur.execute("ALTER TABLE users ADD COLUMN lemon_customer_id TEXT")
+        except Exception:
+            pass
+
+        try:
+            cur.execute("ALTER TABLE users ADD COLUMN lemon_subscription_id TEXT")
+        except Exception:
+            pass
+
+        try:
+            cur.execute("ALTER TABLE users ADD COLUMN lemon_order_id TEXT")
+        except Exception:
+            pass
+
+        try:
+            cur.execute("ALTER TABLE users ADD COLUMN lemon_product_id TEXT")
+        except Exception:
+            pass
+
+        try:
+            cur.execute("ALTER TABLE users ADD COLUMN lemon_variant_id TEXT")
+        except Exception:
+            pass
 
     else:
         cur.execute("""
@@ -117,6 +147,11 @@ def init_db():
             paystack_email_token TEXT,
             subscription_status TEXT,
             current_period_end TEXT,
+            lemon_customer_id TEXT,
+            lemon_subscription_id TEXT,
+            lemon_order_id TEXT,
+            lemon_product_id TEXT,
+            lemon_variant_id TEXT,
             pro_expires_at TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -160,6 +195,31 @@ def init_db():
 
         try:
             cur.execute("ALTER TABLE users ADD COLUMN pro_expires_at TEXT")
+        except Exception:
+            pass
+        
+        try:
+            cur.execute("ALTER TABLE users ADD COLUMN lemon_customer_id TEXT")
+        except Exception:
+            pass
+
+        try:
+            cur.execute("ALTER TABLE users ADD COLUMN lemon_subscription_id TEXT")
+        except Exception:
+            pass
+
+        try:
+            cur.execute("ALTER TABLE users ADD COLUMN lemon_order_id TEXT")
+        except Exception:
+            pass
+
+        try:
+            cur.execute("ALTER TABLE users ADD COLUMN lemon_product_id TEXT")
+        except Exception:
+            pass
+
+        try:
+            cur.execute("ALTER TABLE users ADD COLUMN lemon_variant_id TEXT")
         except Exception:
             pass
 
