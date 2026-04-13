@@ -514,10 +514,22 @@ SOL: {trend(sol_change)}
 import feedparser
 
 def get_crypto_news(user_id):
-    try:
-        user = get_user(user_id)
-        is_pro = bool(user["is_pro"]) if user else False
+    global AI_CACHE, AI_CACHE_TIME
 
+    user = get_user(user_id)
+    is_pro = bool(user["is_pro"]) if user else False
+
+    CACHE_KEY = f"market_news_{'pro' if is_pro else 'free'}"
+    CACHE_SECONDS = 120  # 2 minutes
+    current_time = time.time()
+
+    if (
+        CACHE_KEY in AI_CACHE
+        and (current_time - AI_CACHE_TIME.get(CACHE_KEY, 0)) < CACHE_SECONDS
+    ):
+        return AI_CACHE[CACHE_KEY]
+
+    try:
         url = "https://cointelegraph.com/rss"
         response = requests.get(url, timeout=5)
         feed = feedparser.parse(response.content)
@@ -578,17 +590,36 @@ def get_crypto_news(user_id):
             news_text += "⚡ *Live market headlines*\n"
             news_text += "🔓 Upgrade to *Cryp Pro* for deeper market intel"
 
+        AI_CACHE[CACHE_KEY] = news_text
+        AI_CACHE_TIME[CACHE_KEY] = current_time
+
         return news_text
 
     except Exception as e:
         print("Error fetching market news:", e)
+
+        if CACHE_KEY in AI_CACHE:
+            return AI_CACHE[CACHE_KEY]
+
         return "⚠️ Failed to fetch market news."
     
 def get_btc_news(user_id):
-    try:
-        user = get_user(user_id)
-        is_pro = bool(user["is_pro"]) if user else False
+    global AI_CACHE, AI_CACHE_TIME
 
+    user = get_user(user_id)
+    is_pro = bool(user["is_pro"]) if user else False
+
+    CACHE_KEY = f"btc_news_{'pro' if is_pro else 'free'}"
+    CACHE_SECONDS = 120  # 2 minutes
+    current_time = time.time()
+
+    if (
+        CACHE_KEY in AI_CACHE
+        and (current_time - AI_CACHE_TIME.get(CACHE_KEY, 0)) < CACHE_SECONDS
+    ):
+        return AI_CACHE[CACHE_KEY]
+
+    try:
         url = "https://cointelegraph.com/rss"
         response = requests.get(url, timeout=5)
         feed = feedparser.parse(response.content)
@@ -670,17 +701,36 @@ def get_btc_news(user_id):
             news_text += "⚡ *Live BTC headlines*\n"
             news_text += "🔓 Upgrade to *Cryp Pro* for deeper market intel"
 
+        AI_CACHE[CACHE_KEY] = news_text
+        AI_CACHE_TIME[CACHE_KEY] = current_time
+
         return news_text
 
     except Exception as e:
         print("Error fetching BTC news:", e)
+
+        if CACHE_KEY in AI_CACHE:
+            return AI_CACHE[CACHE_KEY]
+
         return "⚠️ Failed to fetch BTC news."
     
 def get_eth_news(user_id):
-    try:
-        user = get_user(user_id)
-        is_pro = bool(user["is_pro"]) if user else False
+    global AI_CACHE, AI_CACHE_TIME
 
+    user = get_user(user_id)
+    is_pro = bool(user["is_pro"]) if user else False
+
+    CACHE_KEY = f"eth_news_{'pro' if is_pro else 'free'}"
+    CACHE_SECONDS = 120  # 2 minutes
+    current_time = time.time()
+
+    if (
+        CACHE_KEY in AI_CACHE
+        and (current_time - AI_CACHE_TIME.get(CACHE_KEY, 0)) < CACHE_SECONDS
+    ):
+        return AI_CACHE[CACHE_KEY]
+
+    try:
         url = "https://cointelegraph.com/rss"
         response = requests.get(url, timeout=5)
         feed = feedparser.parse(response.content)
@@ -767,17 +817,36 @@ def get_eth_news(user_id):
             news_text += "⚡ *Live ETH headlines*\n"
             news_text += "🔓 Upgrade to *Cryp Pro* for deeper market intel"
 
+        AI_CACHE[CACHE_KEY] = news_text
+        AI_CACHE_TIME[CACHE_KEY] = current_time
+
         return news_text
 
     except Exception as e:
         print("Error fetching ETH news:", e)
+
+        if CACHE_KEY in AI_CACHE:
+            return AI_CACHE[CACHE_KEY]
+
         return "⚠️ Failed to fetch ETH news." 
     
 def get_altcoin_news(user_id):
-    try:
-        user = get_user(user_id)
-        is_pro = bool(user["is_pro"]) if user else False
+    global AI_CACHE, AI_CACHE_TIME
 
+    user = get_user(user_id)
+    is_pro = bool(user["is_pro"]) if user else False
+
+    CACHE_KEY = f"altcoin_news_{'pro' if is_pro else 'free'}"
+    CACHE_SECONDS = 120  # 2 minutes
+    current_time = time.time()
+
+    if (
+        CACHE_KEY in AI_CACHE
+        and (current_time - AI_CACHE_TIME.get(CACHE_KEY, 0)) < CACHE_SECONDS
+    ):
+        return AI_CACHE[CACHE_KEY]
+
+    try:
         url = "https://cointelegraph.com/rss"
         response = requests.get(url, timeout=5)
         feed = feedparser.parse(response.content)
@@ -796,7 +865,6 @@ def get_altcoin_news(user_id):
 
             title_lower = title.lower()
             combined_text = f" {title_lower} {summary.lower()} "
-            padded_title = f" {title_lower} "
 
             is_btc = (
                 "bitcoin" in combined_text
@@ -873,10 +941,17 @@ def get_altcoin_news(user_id):
             news_text += "⚡ *Live altcoin headlines*\n"
             news_text += "🔓 Upgrade to *Cryp Pro* for deeper market intel"
 
+        AI_CACHE[CACHE_KEY] = news_text
+        AI_CACHE_TIME[CACHE_KEY] = current_time
+
         return news_text
 
     except Exception as e:
         print("Error fetching altcoin news:", e)
+
+        if CACHE_KEY in AI_CACHE:
+            return AI_CACHE[CACHE_KEY]
+
         return "⚠️ Failed to fetch altcoin news."     
     
 def get_ai_summary_block(headlines):
@@ -921,6 +996,18 @@ Rules:
         return [] 
     
 def get_ai_market_summary():
+    global AI_CACHE, AI_CACHE_TIME
+
+    CACHE_KEY = "market_summary"
+    CACHE_SECONDS = 300  # 5 minutes
+    current_time = time.time()
+
+    if (
+        CACHE_KEY in AI_CACHE
+        and (current_time - AI_CACHE_TIME.get(CACHE_KEY, 0)) < CACHE_SECONDS
+    ):
+        return AI_CACHE[CACHE_KEY]
+
     try:
         url = "https://cointelegraph.com/rss"
         response = requests.get(url, timeout=5)
@@ -956,10 +1043,19 @@ Takeaway: <one short sentence>
 """
         )
 
-        return response.output_text.strip()
+        summary = response.output_text.strip()
+
+        AI_CACHE[CACHE_KEY] = summary
+        AI_CACHE_TIME[CACHE_KEY] = current_time
+
+        return summary
 
     except Exception as e:
         print("Error generating AI market summary:", e)
+
+        if CACHE_KEY in AI_CACHE:
+            return AI_CACHE[CACHE_KEY]
+
         return "⚠️ AI market summary is temporarily unavailable." 
     
 def get_market_sentiment(headlines):
