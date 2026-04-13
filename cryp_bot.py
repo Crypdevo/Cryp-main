@@ -2018,7 +2018,10 @@ After payment, tap *I've Paid* and send your TXID.
                 text=(
                     "🎉 *Payment Confirmed!*\n\n"
                     "Welcome to *Cryp Pro* 🚀\n\n"
-                    "Your access is now active for 30 days."
+                    "Your access is now active for 30 days.\n\n"
+                    "🔗 *Private Access Link:*\n"
+                    f"{CRYP_PRO_LINK}\n\n"
+                    "Tap the link above to join the premium channel."
                 ),
                 parse_mode="Markdown"
             )
