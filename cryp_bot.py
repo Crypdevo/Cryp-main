@@ -38,7 +38,7 @@ CRYP_PRO_LINK = os.getenv("CRYP_PRO_LINK", "https://t.me/+HCrmHvpLg_kzMGY0")
 CRYP_PRO_CHANNEL_ID = int(os.getenv("CRYP_PRO_CHANNEL_ID", "-1003800067003"))
 ADMIN_ID = int(os.getenv("ADMIN_ID", "7057199314"))
 USDT_TRC20_ADDRESS = "TSZyLghQzxx3BcN3EnBzcD1uHhYtmf7xva"
-CRYPTO_PRICE_USDT = "5"
+CRYPTO_PRICE_USDT = "5.00"
 LOCAL_PRICE_ZAR = "R99"
 INTL_PRICE_USD = "$5"
 LEMON_CHECKOUT_URL = os.getenv("LEMON_CHECKOUT_URL", "")
@@ -1111,7 +1111,20 @@ def build_lemon_checkout_url(telegram_user_id: int):
         return None
 
     separator = "&" if "?" in LEMON_CHECKOUT_URL else "?"
-    return f"{LEMON_CHECKOUT_URL}{separator}checkout[custom][telegram_user_id]={telegram_user_id}"    
+    return f"{LEMON_CHECKOUT_URL}{separator}checkout[custom][telegram_user_id]={telegram_user_id}" 
+
+def get_pro_expired_message():
+    return (
+        "⏳ *Cryp Pro Expired*\n\n"
+        "Your premium access has ended, and Pro features are now locked.\n\n"
+        "🔒 *You’ve lost access to:*\n"
+        "• Unlimited alerts\n"
+        "• AI Daily Briefing\n"
+        "• Premium market insights\n"
+        "• Advanced news summaries\n\n"
+        "🚀 *Get back your edge in seconds.*\n\n"
+        "Tap below to reactivate your Cryp Pro subscription."
+    )   
     
 def get_ai_daily_briefing():
     global AI_CACHE, AI_CACHE_TIME
@@ -1524,19 +1537,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Choose an option below 👇"
         )
     else:
-        text = (
-            "📉 *Welcome to Cryp Free*\n\n"
-            "Your beginner-friendly crypto companion for alerts, news, and market insights.\n\n"
-            "🆓 *Free plan includes:*\n"
-            "• Up to 2 active alerts\n"
-            "• Basic market tracking\n"
-            "• Core news coverage\n\n"
-            "🚀 Upgrade to Cryp Pro to unlock:\n"
-            "• Unlimited alerts\n"
-            "• AI-powered insights\n"
-            "• Premium market intelligence\n\n"
-            "Choose an option below 👇"
-        )
+        if user and user.get("pro_expires_at"):
+            text = get_pro_expired_message()
+        else:
+            text = (
+                "📉 *Welcome to Cryp Free*\n\n"
+                "Your beginner-friendly crypto companion for alerts, news, and market insights.\n\n"
+                "🆓 *Free plan includes:*\n"
+                "• Up to 2 active alerts\n"
+                "• Basic market tracking\n"
+                "• Core news coverage\n\n"
+                "🚀 Upgrade to Cryp Pro to unlock:\n"
+                "• Unlimited alerts\n"
+                "• AI-powered insights\n"
+                "• Premium market intelligence\n\n"
+                "Choose an option below 👇"
+            )
 
     await update.message.reply_text(
     text,
@@ -1675,8 +1691,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
         elif query.data == "market_snapshot":
+            await query.edit_message_text(
+                text="📊 Loading market snapshot...",
+                parse_mode="Markdown"
+            )
+
             snapshot = get_market_snapshot()
-            await query.message.reply_text(snapshot, parse_mode="Markdown")
+            await query.edit_message_text(
+                text=snapshot,
+                parse_mode="Markdown",
+                reply_markup=back_menu_keyboard()
+            )
 
         elif query.data == "daily_briefing":
             if not is_pro:
@@ -1869,6 +1894,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
         elif query.data == "view_alerts":
+            await query.edit_message_text(
+                text="🔔 Loading your alerts..."
+            )
+
             user_alerts = [a for a in PRICE_ALERTS if a["user_id"] == user_id]
 
             if not user_alerts:
@@ -2027,6 +2056,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     parse_mode="Markdown"
                 )
                 return
+            
+            await query.edit_message_text(
+                text="📈 Loading premium market update...",
+                parse_mode="Markdown"
+            )
 
             btc_price, btc_change = get_coin_data("BTCUSDT")
             eth_price, eth_change = get_coin_data("ETHUSDT")
@@ -2072,24 +2106,30 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
         elif query.data == "pay_crypto":
             message = f"""
-💎 *Cryp Pro — Crypto Payment*
+💎 *Cryp Pro — Crypto Upgrade*
 
-Upgrade to Cryp Pro for:
-- {INTL_PRICE_USD} international
-- {LOCAL_PRICE_ZAR} local card pricing later
-- *Crypto checkout today:* {CRYPTO_PRICE_USDT} USDT
+You’re one step away from unlocking full access to Cryp Pro.
 
-Send exactly *{CRYPTO_PRICE_USDT} USDT* using the *TRC20 (TRON)* network to:
+📦 *Your subscription includes:*
+• Unlimited price alerts  
+• AI Daily Briefing  
+• Premium market intelligence  
+• Advanced news summaries  
 
+💰 *Price:*  
+*{CRYPTO_PRICE_USDT} USDT* (TRC20 — TRON)
+
+📍 *Send payment to:*  
 `{USDT_TRC20_ADDRESS}`
 
-⚠️ *Important:*
-- Send *USDT only*
-- Network must be *TRC20*
-- Do *not* send ERC20, BEP20, Polygon, Base, or other networks
-- Wrong network may result in lost funds
+⚠️ *Important:*  
+• Send *USDT only*  
+• Use *TRC20 network only*  
+• Do *not* use ERC20, BEP20, Polygon, Base, etc.  
+• Wrong network may result in lost funds  
 
-After payment, tap *I've Paid* and send your TXID.
+✅ *After payment:*  
+Tap *I've Paid* and submit your TXID for verification.
 """
             await query.edit_message_text(
                 text=message,
@@ -2408,6 +2448,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         if text in supported_coins:
+            await update.message.reply_text("🧠 Analyzing coin data...")
+
             analysis = get_coin_analysis(text, is_pro=is_pro)
             await update.message.reply_text(analysis, parse_mode="Markdown")
             return
@@ -2422,6 +2464,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         if text == "watchlist":
+            await update.message.reply_text("👀 Loading your watchlist...")
+
             watchlist_text = get_watchlist_with_prices(user_id)
 
             if not watchlist_text:
