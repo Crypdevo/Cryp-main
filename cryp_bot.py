@@ -2018,7 +2018,7 @@ After payment, tap *I've Paid* and send your TXID.
                 await query.answer("Not authorized.", show_alert=True)
                 return
 
-            payment_id = int(query.data.split("_")[-1])
+            payment_id = int(query.data.replace("approve_crypto_", ""))
 
             payments = get_pending_crypto_payments()
             payment = next((p for p in payments if p["id"] == payment_id), None)
@@ -2059,7 +2059,7 @@ After payment, tap *I've Paid* and send your TXID.
                 await query.answer("Not authorized.", show_alert=True)
                 return
 
-            payment_id = int(query.data.split("_")[-1])
+            payment_id = int(query.data.replace("reject_crypto_", ""))
 
             payments = get_pending_crypto_payments()
             payment = next((p for p in payments if p["id"] == payment_id), None)
