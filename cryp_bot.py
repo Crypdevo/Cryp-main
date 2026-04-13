@@ -326,7 +326,13 @@ def get_coin_analysis(symbol, is_pro=False):
             "xrp": "ripple",
             "doge": "dogecoin",
             "ada": "cardano",
-            "bnb": "binancecoin"
+            "bnb": "binancecoin",
+            "dot": "polkadot",
+            "avax": "avalanche-2",
+            "matic": "matic-network",
+            "link": "chainlink",
+            "uni": "uniswap",
+            "atom": "cosmos"
         }
 
         symbol = symbol.lower().strip()
