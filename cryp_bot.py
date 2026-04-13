@@ -2016,14 +2016,13 @@ After payment, tap *I've Paid* and send your TXID.
             await context.bot.send_message(
                 chat_id=user_id,
                 text=(
-                    "🎉 *Payment Confirmed!*\n\n"
-                    "Welcome to *Cryp Pro* 🚀\n\n"
+                    "🎉 Payment Confirmed!\n\n"
+                    "Welcome to Cryp Pro 🚀\n\n"
                     "Your access is now active for 30 days.\n\n"
-                    "🔗 *Private Access Link:*\n"
+                    "🔗 Private Access Link:\n"
                     f"{CRYP_PRO_LINK}\n\n"
                     "Tap the link above to join the premium channel."
-                ),
-                parse_mode="Markdown"
+                )
             )
 
             await query.edit_message_text(
@@ -2049,14 +2048,13 @@ After payment, tap *I've Paid* and send your TXID.
             reject_crypto_payment(payment_id, notes="Rejected by admin")
 
             await context.bot.send_message(
-                chat_id=user_id,
-                text=(
-                    "❌ *Payment Not Approved*\n\n"
-                    "We could not verify your crypto payment.\n"
-                    "Please contact support if you believe this was a mistake."
-                ),
-                parse_mode="Markdown"
-            )
+                    chat_id=user_id,
+                    text=(
+                        "❌ Payment Not Approved\n\n"
+                        "We could not verify your crypto payment.\n"
+                        "Please contact support if you believe this was a mistake."
+                    )
+                )
 
             await query.edit_message_text(
                 text=f"❌ Crypto payment {payment_id} rejected."
