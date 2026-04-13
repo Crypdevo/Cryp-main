@@ -26,6 +26,8 @@ from db import approve_crypto_payment
 from db import reject_crypto_payment
 from db import get_pending_crypto_payments
 from datetime import datetime, timedelta
+from db import expire_user_pro
+from db import get_expired_pro_users
 
 load_dotenv()
 
@@ -2574,6 +2576,65 @@ def validate_environment():
         raise ValueError(
             "Missing required environment variables: " + ", ".join(missing)
         )
+        
+async def check_expired_pro_users(context: ContextTypes.DEFAULT_TYPE):
+    try:
+        expired_users = get_expired_pro_users()
+
+        if not expired_users:
+            return
+
+        for user in expired_users:
+            user_id = user["telegram_user_id"]
+
+            expire_user_pro(user_id)
+
+            try:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=(
+                        "⏳ *Cryp Pro Expired*\n\n"
+                        "Your Pro access has expired and your account has been moved back to Cryp Free.\n\n"
+                        "Upgrade again anytime to restore premium access."
+                    ),
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                print(f"Could not send expiry message to {user_id}: {e}")
+
+            print(f"Expired Pro access for user {user_id}")
+
+    except Exception as e:
+        print("Expiry check error:", e) 
+        
+async def set_test_expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    if len(context.args) < 2:
+        await update.message.reply_text("Usage: /setexpiry <user_id> <minutes>")
+        return
+
+    try:
+        user_id = int(context.args[0])
+        minutes = int(context.args[1])
+
+        expiry = datetime.utcnow() + timedelta(minutes=minutes)
+
+        set_user_pro(
+            telegram_user_id=user_id,
+            is_pro=1,
+            subscription_status="crypto",
+            pro_expires_at=expiry.isoformat()
+        )
+
+        await update.message.reply_text(
+            f"✅ Expiry set for user {user_id} in {minutes} minute(s).\n"
+            f"Expiry time: {expiry.isoformat()}"
+        )
+
+    except Exception as e:
+        await update.message.reply_text(f"Error setting expiry: {e}")               
 
 
 def main():
@@ -2587,6 +2648,7 @@ def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("setexpiry", set_test_expiry))
     app.add_handler(CommandHandler("approve", approve))
     app.add_handler(CommandHandler("alerts", show_alerts))
     app.add_handler(CommandHandler("delete", delete_alert))
@@ -2598,6 +2660,7 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.job_queue.run_repeating(check_price_alerts, interval=30, first=5)
+    app.job_queue.run_repeating(check_expired_pro_users, interval=30, first=10)
     app.job_queue.run_repeating(send_pro_daily_update, interval=3600, first=10)
     app.job_queue.run_repeating(send_market_snapshot, interval=3600, first=15)
     app.job_queue.run_repeating(send_top_movers, interval=14400, first=20)

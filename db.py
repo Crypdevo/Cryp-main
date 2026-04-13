@@ -395,4 +395,49 @@ def reject_crypto_payment(payment_id, notes=None):
     )
 
     conn.commit()
-    conn.close()    
+    conn.close() 
+    
+from datetime import datetime
+
+
+def get_expired_pro_users():
+    conn = get_conn()
+    cur = conn.cursor()
+
+    now_iso = datetime.utcnow().isoformat()
+
+    execute(
+        cur,
+        """
+        SELECT *
+        FROM users
+        WHERE is_pro = %s
+          AND pro_expires_at IS NOT NULL
+          AND pro_expires_at <= %s
+        """,
+        (1, now_iso)
+    )
+    rows = cur.fetchall()
+
+    conn.close()
+    return rows
+
+
+def expire_user_pro(telegram_user_id):
+    conn = get_conn()
+    cur = conn.cursor()
+
+    execute(
+        cur,
+        """
+        UPDATE users
+        SET is_pro = %s,
+            subscription_status = %s,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE telegram_user_id = %s
+        """,
+        (0, "expired", telegram_user_id)
+    )
+
+    conn.commit()
+    conn.close()       
