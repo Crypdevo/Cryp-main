@@ -104,6 +104,102 @@ def update_user_payment_profile(
 
     conn.commit()
     conn.close()
+    
+def update_user_lemon_profile(
+    telegram_user_id: int,
+    lemon_customer_id: Optional[str] = None,
+    lemon_subscription_id: Optional[str] = None,
+    lemon_order_id: Optional[str] = None,
+    lemon_product_id: Optional[str] = None,
+    lemon_variant_id: Optional[str] = None,
+    subscription_status: Optional[str] = None,
+    current_period_end: Optional[str] = None,
+    pro_expires_at: Optional[str] = None,
+    is_pro: Optional[bool] = None,
+):
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute(
+        "SELECT * FROM users WHERE telegram_user_id = %s",
+        (telegram_user_id,)
+    )
+    existing = cur.fetchone()
+
+    if not existing:
+        cur.execute(
+            """
+            INSERT INTO users (
+                telegram_user_id,
+                username,
+                is_pro,
+                lemon_customer_id,
+                lemon_subscription_id,
+                lemon_order_id,
+                lemon_product_id,
+                lemon_variant_id,
+                subscription_status,
+                current_period_end,
+                pro_expires_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                telegram_user_id,
+                None,
+                1 if is_pro else 0,
+                lemon_customer_id,
+                lemon_subscription_id,
+                lemon_order_id,
+                lemon_product_id,
+                lemon_variant_id,
+                subscription_status,
+                current_period_end,
+                pro_expires_at,
+            ),
+        )
+    else:
+        fields = []
+        values = []
+
+        if lemon_customer_id is not None:
+            fields.append("lemon_customer_id = %s")
+            values.append(lemon_customer_id)
+        if lemon_subscription_id is not None:
+            fields.append("lemon_subscription_id = %s")
+            values.append(lemon_subscription_id)
+        if lemon_order_id is not None:
+            fields.append("lemon_order_id = %s")
+            values.append(lemon_order_id)
+        if lemon_product_id is not None:
+            fields.append("lemon_product_id = %s")
+            values.append(lemon_product_id)
+        if lemon_variant_id is not None:
+            fields.append("lemon_variant_id = %s")
+            values.append(lemon_variant_id)
+        if subscription_status is not None:
+            fields.append("subscription_status = %s")
+            values.append(subscription_status)
+        if current_period_end is not None:
+            fields.append("current_period_end = %s")
+            values.append(current_period_end)
+        if pro_expires_at is not None:
+            fields.append("pro_expires_at = %s")
+            values.append(pro_expires_at)
+        if is_pro is not None:
+            fields.append("is_pro = %s")
+            values.append(1 if is_pro else 0)
+
+        fields.append("updated_at = CURRENT_TIMESTAMP")
+        values.append(telegram_user_id)
+
+        cur.execute(
+            f"UPDATE users SET {', '.join(fields)} WHERE telegram_user_id = %s",
+            values,
+        )
+
+    conn.commit()
+    conn.close()    
 
 def verify_paystack_signature(raw_body: bytes, signature: Optional[str]) -> bool:
     if not signature:
@@ -269,7 +365,6 @@ async def lemon_webhook(
     custom_data = meta.get("custom_data", {}) or {}
 
     telegram_user_id = custom_data.get("telegram_user_id")
-
     if telegram_user_id is not None:
         try:
             telegram_user_id = int(telegram_user_id)
@@ -278,7 +373,54 @@ async def lemon_webhook(
 
     event_name = request.headers.get("X-Event-Name", "")
 
-    print("Lemon webhook received:", event_name, telegram_user_id)
+    lemon_customer_id = str(attributes.get("customer_id")) if attributes.get("customer_id") is not None else None
+    lemon_subscription_id = str(data.get("id")) if data.get("id") is not None else None
+    lemon_order_id = str(attributes.get("order_id")) if attributes.get("order_id") is not None else None
+    lemon_product_id = str(attributes.get("product_id")) if attributes.get("product_id") is not None else None
+    lemon_variant_id = str(attributes.get("variant_id")) if attributes.get("variant_id") is not None else None
+
+    current_period_end = attributes.get("renews_at") or attributes.get("ends_at")
+    status = attributes.get("status")
+
+    print("Lemon webhook received:", event_name, telegram_user_id, status)
+
+    if telegram_user_id and event_name in {
+        "subscription_created",
+        "subscription_updated",
+        "subscription_resumed",
+        "subscription_payment_success"
+    }:
+        update_user_lemon_profile(
+            telegram_user_id=telegram_user_id,
+            lemon_customer_id=lemon_customer_id,
+            lemon_subscription_id=lemon_subscription_id,
+            lemon_order_id=lemon_order_id,
+            lemon_product_id=lemon_product_id,
+            lemon_variant_id=lemon_variant_id,
+            subscription_status=status or "active",
+            current_period_end=current_period_end,
+            pro_expires_at=current_period_end,
+            is_pro=True,
+        )
+
+    elif telegram_user_id and event_name in {
+        "subscription_cancelled",
+        "subscription_expired",
+        "subscription_paused",
+        "subscription_payment_failed"
+    }:
+        update_user_lemon_profile(
+            telegram_user_id=telegram_user_id,
+            lemon_customer_id=lemon_customer_id,
+            lemon_subscription_id=lemon_subscription_id,
+            lemon_order_id=lemon_order_id,
+            lemon_product_id=lemon_product_id,
+            lemon_variant_id=lemon_variant_id,
+            subscription_status=status or "inactive",
+            current_period_end=current_period_end,
+            pro_expires_at=current_period_end,
+            is_pro=False,
+        )
 
     return {
         "ok": True,
