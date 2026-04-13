@@ -273,35 +273,68 @@ def create_crypto_payment(
     conn = get_conn()
     cur = conn.cursor()
 
-    execute(
-        cur,
-        """
-        INSERT INTO crypto_payments (
-            telegram_user_id,
-            telegram_username,
-            network,
-            currency,
-            amount_expected,
-            wallet_address,
-            txid,
-            status
+    if using_postgres():
+        execute(
+            cur,
+            """
+            INSERT INTO crypto_payments (
+                telegram_user_id,
+                telegram_username,
+                network,
+                currency,
+                amount_expected,
+                wallet_address,
+                txid,
+                status
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+            """,
+            (
+                telegram_user_id,
+                telegram_username,
+                network,
+                currency,
+                amount_expected,
+                wallet_address,
+                txid,
+                "pending"
+            )
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        """,
-        (
-            telegram_user_id,
-            telegram_username,
-            network,
-            currency,
-            amount_expected,
-            wallet_address,
-            txid,
-            "pending"
+        row = cur.fetchone()
+        payment_id = row["id"] if row else None
+    else:
+        execute(
+            cur,
+            """
+            INSERT INTO crypto_payments (
+                telegram_user_id,
+                telegram_username,
+                network,
+                currency,
+                amount_expected,
+                wallet_address,
+                txid,
+                status
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                telegram_user_id,
+                telegram_username,
+                network,
+                currency,
+                amount_expected,
+                wallet_address,
+                txid,
+                "pending"
+            )
         )
-    )
+        payment_id = cur.lastrowid
 
     conn.commit()
     conn.close()
+    return payment_id
 
 
 def get_pending_crypto_payments():

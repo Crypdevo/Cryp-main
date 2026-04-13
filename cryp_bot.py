@@ -22,6 +22,10 @@ from db import get_user
 from db import init_db as init_main_db
 from db import set_user_pro
 from migrate_pro_users import migrate
+from db import approve_crypto_payment
+from db import reject_crypto_payment
+from db import get_pending_crypto_payments
+from datetime import datetime, timedelta
 
 load_dotenv()
 
@@ -2008,6 +2012,79 @@ After payment, tap *I've Paid* and send your TXID.
                 ),
                 reply_markup=back_menu_keyboard()
             )
+            
+        elif query.data.startswith("approve_crypto_"):
+            if query.from_user.id != ADMIN_ID:
+                await query.answer("Not authorized.", show_alert=True)
+                return
+
+            payment_id = int(query.data.split("_")[-1])
+
+            payments = get_pending_crypto_payments()
+            payment = next((p for p in payments if p["id"] == payment_id), None)
+
+            if not payment:
+                await query.answer("Payment not found or already processed.", show_alert=True)
+                return
+
+            user_id = payment["telegram_user_id"]
+
+            approve_crypto_payment(payment_id)
+
+            expiry = datetime.utcnow() + timedelta(days=30)
+
+            set_user_pro(
+                telegram_user_id=user_id,
+                is_pro=1,
+                subscription_status="crypto",
+                pro_expires_at=expiry.isoformat()
+            )
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=(
+                    "🎉 *Payment Confirmed!*\n\n"
+                    "Welcome to *Cryp Pro* 🚀\n\n"
+                    "Your access is now active for 30 days."
+                ),
+                parse_mode="Markdown"
+            )
+
+            await query.edit_message_text(
+                text=f"✅ Crypto payment {payment_id} approved successfully."
+            )
+
+        elif query.data.startswith("reject_crypto_"):
+            if query.from_user.id != ADMIN_ID:
+                await query.answer("Not authorized.", show_alert=True)
+                return
+
+            payment_id = int(query.data.split("_")[-1])
+
+            payments = get_pending_crypto_payments()
+            payment = next((p for p in payments if p["id"] == payment_id), None)
+
+            if not payment:
+                await query.answer("Payment not found or already processed.", show_alert=True)
+                return
+
+            user_id = payment["telegram_user_id"]
+
+            reject_crypto_payment(payment_id, notes="Rejected by admin")
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=(
+                    "❌ *Payment Not Approved*\n\n"
+                    "We could not verify your crypto payment.\n"
+                    "Please contact support if you believe this was a mistake."
+                ),
+                parse_mode="Markdown"
+            )
+
+            await query.edit_message_text(
+                text=f"❌ Crypto payment {payment_id} rejected."
+            )    
 
         elif query.data == "back_to_menu":
             user_id = query.from_user.id
@@ -2089,7 +2166,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             context.user_data["awaiting_crypto_txid"] = False
 
-            create_crypto_payment(
+            payment_id = create_crypto_payment(
                 telegram_user_id=user_id,
                 telegram_username=username,
                 network="TRC20",
@@ -2102,15 +2179,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Notify admin
             admin_message = (
                 "🚨 New Crypto Payment Submission\n\n"
+                f"Payment ID: {payment_id}\n"
                 f"User: @{username if username else 'No username'}\n"
                 f"User ID: {user_id}\n"
                 f"Amount: 5 USDT (TRC20)\n"
                 f"TXID:\n{txid}"
             )
 
+            admin_keyboard = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("✅ Approve", callback_data=f"approve_crypto_{payment_id}"),
+                    InlineKeyboardButton("❌ Reject", callback_data=f"reject_crypto_{payment_id}")
+                ]
+            ])
+
             await context.bot.send_message(
                 chat_id=ADMIN_ID,
-                text=admin_message
+                text=admin_message,
+                reply_markup=admin_keyboard
             )
 
             await update.message.reply_text(
