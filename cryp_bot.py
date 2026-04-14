@@ -384,13 +384,13 @@ def get_smart_alerts():
         ]
 
         for symbol, price, change in coin_data:
-            if change >= 0:
+            if change >= 4:
                 alerts.append({
                     "coin": symbol,
                     "type": "momentum_up",
                     "text": f"🚀 *Smart Alert*\n\n{symbol} is showing strong bullish momentum at ${format_price(price)} ({change:+.2f}%)."
                 })
-            elif change <= 0:
+            elif change <= -4:
                 alerts.append({
                     "coin": symbol,
                     "type": "momentum_down",
