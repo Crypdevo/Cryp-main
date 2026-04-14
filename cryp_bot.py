@@ -499,19 +499,27 @@ def get_coin_analysis(symbol, is_pro=False):
             "bnb": "binancecoin",
             "dot": "polkadot",
             "avax": "avalanche-2",
-            "matic": "matic-network",
+            "matic": "polygon-ecosystem-token",
+            "pol": "polygon-ecosystem-token",
             "link": "chainlink",
             "uni": "uniswap",
             "atom": "cosmos"
         }
 
         symbol = symbol.lower().strip()
+        
+        if symbol == "matic":
+            symbol = "pol"
 
         if symbol not in coin_map:
             return (
                 "❌ Coin not supported yet. Try: "
                 "BTC, ETH, SOL, XRP, DOGE, ADA, BNB, DOT, AVAX, MATIC, LINK, UNI, ATOM"
             )
+            
+            migration_note = ""
+        if symbol == "pol":
+            migration_note = "ℹ️ MATIC migrated to POL. Running analysis for POL.\n\n"
 
         coin_id = coin_map[symbol]
 
@@ -551,7 +559,7 @@ def get_coin_analysis(symbol, is_pro=False):
         change_text = f"{change_24h:+.2f}%" if change_24h is not None else "N/A"
 
         analysis = f"""
-🔍 *{name} Analysis*
+{migration_note}🔍 *{name} Analysis*
 
 💵 Price: ${price:,.4f}
 📊 24h Change: {change_text}
