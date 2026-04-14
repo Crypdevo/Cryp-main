@@ -373,9 +373,19 @@ def get_smart_alerts():
     alerts = []
 
     try:
-        btc_price, btc_change = get_coin_data("BTCUSDT")
-        eth_price, eth_change = get_coin_data("ETHUSDT")
-        sol_price, sol_change = get_coin_data("SOLUSDT")
+        data = get_cached_market_data()
+
+        if not data:
+            return []
+
+        btc_price = data.get("bitcoin", {}).get("usd")
+        btc_change = data.get("bitcoin", {}).get("usd_24h_change")
+
+        eth_price = data.get("ethereum", {}).get("usd")
+        eth_change = data.get("ethereum", {}).get("usd_24h_change")
+
+        sol_price = data.get("solana", {}).get("usd")
+        sol_change = data.get("solana", {}).get("usd_24h_change")
 
         coin_data = [
             ("BTC", btc_price, btc_change),
@@ -384,17 +394,29 @@ def get_smart_alerts():
         ]
 
         for symbol, price, change in coin_data:
+            if price is None or change is None:
+                continue
+
             if change >= 4:
                 alerts.append({
                     "coin": symbol,
-                    "type": "momentum_up",
-                    "text": f"🚀 *Smart Alert*\n\n{symbol} is showing strong bullish momentum at ${format_price(price)} ({change:+.2f}%)."
+                    "type": "up",
+                    "text": (
+                        f"🚀 *Smart Alert*\n\n"
+                        f"{symbol} is showing strong bullish momentum\n"
+                        f"💰 ${format_price(price)} ({change:+.2f}%)"
+                    )
                 })
+
             elif change <= -4:
                 alerts.append({
                     "coin": symbol,
-                    "type": "momentum_down",
-                    "text": f"⚠️ *Smart Alert*\n\n{symbol} is under strong selling pressure at ${format_price(price)} ({change:+.2f}%)."
+                    "type": "down",
+                    "text": (
+                        f"⚠️ *Smart Alert*\n\n"
+                        f"{symbol} is under strong selling pressure\n"
+                        f"💰 ${format_price(price)} ({change:+.2f}%)"
+                    )
                 })
 
         return alerts
