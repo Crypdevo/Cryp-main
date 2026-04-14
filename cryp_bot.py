@@ -384,7 +384,7 @@ def get_smart_alerts():
         ]
 
         for symbol, price, change in coin_data:
-            if change >= 4:
+            if change >= 0:
                 alerts.append({
                     "coin": symbol,
                     "type": "momentum_up",
