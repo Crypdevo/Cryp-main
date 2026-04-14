@@ -65,6 +65,8 @@ EXTENDED_MARKET_CACHE_TIME = 0
 TOP_MOVERS_CACHE = None
 TOP_MOVERS_CACHE_TIME = 0
 LAST_SMART_ALERTS = {}
+ANALYSIS_CACHE = {}
+ANALYSIS_CACHE_TIME = {}
 
 def load_watchlists():
     global WATCHLISTS
@@ -488,6 +490,8 @@ def crypto_payment_keyboard():
     return InlineKeyboardMarkup(keyboard)
 
 def get_coin_analysis(symbol, is_pro=False):
+    global ANALYSIS_CACHE, ANALYSIS_CACHE_TIME
+
     try:
         coin_map = {
             "btc": "bitcoin",
@@ -507,21 +511,30 @@ def get_coin_analysis(symbol, is_pro=False):
         }
 
         symbol = symbol.lower().strip()
-        
+
         if symbol == "matic":
             symbol = "pol"
 
         if symbol not in coin_map:
             return (
                 "❌ Coin not supported yet. Try: "
-                "BTC, ETH, SOL, XRP, DOGE, ADA, BNB, DOT, AVAX, MATIC, LINK, UNI, ATOM"
+                "BTC, ETH, SOL, XRP, DOGE, ADA, BNB, DOT, AVAX, POL, LINK, UNI, ATOM"
             )
-            
-            migration_note = ""
-        if symbol == "pol":
-            migration_note = "ℹ️ MATIC migrated to POL. Running analysis for POL.\n\n"
+
+        cache_key = f"{symbol}_{'pro' if is_pro else 'free'}"
+        cache_seconds = 180
+        current_time = time.time()
+
+        if (
+            cache_key in ANALYSIS_CACHE
+            and (current_time - ANALYSIS_CACHE_TIME.get(cache_key, 0)) < cache_seconds
+        ):
+            return ANALYSIS_CACHE[cache_key]
 
         coin_id = coin_map[symbol]
+
+        print(f"COIN ANALYSIS REQUEST: {symbol}")
+        print(f"COIN ANALYSIS COINGECKO ID: {coin_id}")
 
         url = f"https://api.coingecko.com/api/v3/coins/{coin_id}"
         response = requests.get(url, timeout=10)
@@ -558,6 +571,10 @@ def get_coin_analysis(symbol, is_pro=False):
 
         change_text = f"{change_24h:+.2f}%" if change_24h is not None else "N/A"
 
+        migration_note = ""
+        if symbol == "pol":
+            migration_note = "ℹ️ MATIC migrated to POL. Running analysis for POL.\n\n"
+
         analysis = f"""
 {migration_note}🔍 *{name} Analysis*
 
@@ -577,7 +594,26 @@ def get_coin_analysis(symbol, is_pro=False):
 {pro_insight}
 """
 
+        analysis = analysis.strip()
+
+        ANALYSIS_CACHE[cache_key] = analysis
+        ANALYSIS_CACHE_TIME[cache_key] = current_time
+
         return analysis
+
+    except requests.exceptions.HTTPError as e:
+        status_code = e.response.status_code if e.response is not None else None
+
+        if status_code == 429:
+            print(f"Coin analysis rate-limited for {symbol}")
+
+            if cache_key in ANALYSIS_CACHE:
+                return ANALYSIS_CACHE[cache_key]
+
+            return "⚠️ Coin analysis is temporarily busy. Please try again in a moment."
+
+        print("Error fetching coin analysis:", e)
+        return "⚠️ Failed to fetch coin data. Try again later."
 
     except Exception as e:
         print("Error fetching coin analysis:", e)
