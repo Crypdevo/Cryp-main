@@ -249,19 +249,41 @@ def save_price_alerts():
             
 def get_coin_data(symbol):
     try:
-        url = f"https://api.binance.com/api/v3/ticker/24hr?symbol={symbol}"
-        response = requests.get(url, timeout=10)
+        coin_map = {
+            "BTCUSDT": "bitcoin",
+            "ETHUSDT": "ethereum",
+            "SOLUSDT": "solana",
+            "XRPUSDT": "ripple",
+            "DOGEUSDT": "dogecoin"
+        }
+
+        coin_id = coin_map.get(symbol)
+        if not coin_id:
+            return "N/A", 0
+
+        url = "https://api.coingecko.com/api/v3/simple/price"
+        params = {
+            "ids": coin_id,
+            "vs_currencies": "usd",
+            "include_24hr_change": "true"
+        }
+
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
         data = response.json()
 
         print(f"{symbol} DATA:", data)
 
-        if "lastPrice" not in data or "priceChangePercent" not in data:
+        if coin_id not in data:
             return "N/A", 0
 
-        price = float(data["lastPrice"])
-        change = float(data["priceChangePercent"])
+        price = data[coin_id].get("usd")
+        change = data[coin_id].get("usd_24h_change")
 
-        return price, change
+        if price is None or change is None:
+            return "N/A", 0
+
+        return float(price), float(change)
 
     except Exception as e:
         print(f"get_coin_data error for {symbol}: {e}")
