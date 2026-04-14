@@ -64,6 +64,7 @@ EXTENDED_MARKET_CACHE = {}
 EXTENDED_MARKET_CACHE_TIME = 0
 TOP_MOVERS_CACHE = None
 TOP_MOVERS_CACHE_TIME = 0
+LAST_SMART_ALERTS = {}
 
 def load_watchlists():
     global WATCHLISTS
@@ -318,7 +319,89 @@ def get_coin_data(symbol):
 def format_price(price):
     if isinstance(price, (int, float)):
         return f"{price:,.4f}" if price < 1 else f"{price:,.2f}"
-    return str(price)               
+    return str(price)
+
+def get_signal_mode():
+    try:
+        btc_price, btc_change = get_coin_data("BTCUSDT")
+        eth_price, eth_change = get_coin_data("ETHUSDT")
+        sol_price, sol_change = get_coin_data("SOLUSDT")
+
+        def signal_label(change):
+            if change >= 3:
+                return "📈 Bullish", "High"
+            elif change >= 1:
+                return "🟢 Bullish Bias", "Medium"
+            elif change <= -3:
+                return "📉 Bearish", "High"
+            elif change <= -1:
+                return "🔴 Bearish Bias", "Medium"
+            else:
+                return "➖ Neutral", "Low"
+
+        btc_signal, btc_conf = signal_label(btc_change)
+        eth_signal, eth_conf = signal_label(eth_change)
+        sol_signal, sol_conf = signal_label(sol_change)
+
+        if btc_change >= 3:
+            setup = "Breakout continuation"
+        elif btc_change <= -3:
+            setup = "Weak structure / downside pressure"
+        else:
+            setup = "Range-bound, wait for confirmation"
+
+        text = (
+            f"📡 *Cryp Signal Mode*\n\n"
+            f"₿ *BTC*: {btc_signal}\n"
+            f"Confidence: {btc_conf}\n\n"
+            f"Ξ *ETH*: {eth_signal}\n"
+            f"Confidence: {eth_conf}\n\n"
+            f"◎ *SOL*: {sol_signal}\n"
+            f"Confidence: {sol_conf}\n\n"
+            f"🎯 *Primary Setup:*\n"
+            f"{setup}\n\n"
+            f"💎 *Cryp Pro Signal Engine Active*"
+        )
+
+        return text
+
+    except Exception as e:
+        print("Signal mode error:", e)
+        return "⚠️ Failed to generate signal mode."  
+    
+def get_smart_alerts():
+    alerts = []
+
+    try:
+        btc_price, btc_change = get_coin_data("BTCUSDT")
+        eth_price, eth_change = get_coin_data("ETHUSDT")
+        sol_price, sol_change = get_coin_data("SOLUSDT")
+
+        coin_data = [
+            ("BTC", btc_price, btc_change),
+            ("ETH", eth_price, eth_change),
+            ("SOL", sol_price, sol_change),
+        ]
+
+        for symbol, price, change in coin_data:
+            if change >= 4:
+                alerts.append({
+                    "coin": symbol,
+                    "type": "momentum_up",
+                    "text": f"🚀 *Smart Alert*\n\n{symbol} is showing strong bullish momentum at ${format_price(price)} ({change:+.2f}%)."
+                })
+            elif change <= -4:
+                alerts.append({
+                    "coin": symbol,
+                    "type": "momentum_down",
+                    "text": f"⚠️ *Smart Alert*\n\n{symbol} is under strong selling pressure at ${format_price(price)} ({change:+.2f}%)."
+                })
+
+        return alerts
+
+    except Exception as e:
+        print("Smart alerts error:", e)
+        return []                 
 
 def main_menu_keyboard(user_id):
     user = get_user(user_id)
@@ -331,6 +414,7 @@ def main_menu_keyboard(user_id):
             [InlineKeyboardButton("🗞️ News", callback_data="news_menu")],
             [InlineKeyboardButton("📊 Coin Analysis", callback_data="analysis_menu")],
             [InlineKeyboardButton("📈 Market Update", callback_data="market_update")],
+            [InlineKeyboardButton("📡 Signal Mode", callback_data="signal_mode")],
             [InlineKeyboardButton("➕ Create Alert", callback_data="set_alert")],
             [InlineKeyboardButton("📂 View Alerts", callback_data="view_alerts")],
             [InlineKeyboardButton("💎 Pro Active", callback_data="pro_status")],
@@ -1846,6 +1930,35 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     [InlineKeyboardButton("⬅ Back to Menu", callback_data="back_to_menu")]
                 ])
             )
+            
+        elif query.data == "signal_mode":
+            if not is_pro:
+                await query.edit_message_text(
+                    text=(
+                        "🔒 *Cryp Pro Feature*\n\n"
+                        "Signal Mode gives you a fast directional market view with confidence levels and setup bias.\n\n"
+                        "Upgrade to unlock this premium edge."
+                    ),
+                    parse_mode="Markdown",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("💎 Upgrade to Pro", callback_data="upgrade")],
+                        [InlineKeyboardButton("⬅ Back to Menu", callback_data="back_to_menu")]
+                    ])
+                )
+                return
+
+            await query.edit_message_text(
+                text="📡 Building signal mode...",
+                parse_mode="Markdown"
+            )
+
+            signal_text = get_signal_mode()
+
+            await query.edit_message_text(
+                text=signal_text,
+                parse_mode="Markdown",
+                reply_markup=back_menu_keyboard()
+            )    
 
         elif query.data == "news_menu":
             if is_pro:
@@ -2269,6 +2382,24 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             sol_price, sol_change = get_coin_data("SOLUSDT")
             xrp_price, xrp_change = get_coin_data("XRPUSDT")
             doge_price, doge_change = get_coin_data("DOGEUSDT")
+            
+            avg_change = (btc_change + eth_change + sol_change) / 3
+
+            if avg_change > 2:
+                market_trend = "📈 Strong Bullish"
+                insight = "Momentum is strong across majors. Continuation is likely if buyers stay active."
+            elif avg_change > 0:
+                market_trend = "🟢 Bullish Bias"
+                insight = "The market is leaning positive, with steady strength across leading coins."
+            elif avg_change < -2:
+                market_trend = "📉 Strong Bearish"
+                insight = "Selling pressure is elevated. Caution matters until price action stabilises."
+            elif avg_change < 0:
+                market_trend = "🔴 Bearish Bias"
+                insight = "The market is slightly weak right now, with sellers holding the short-term edge."
+            else:
+                market_trend = "➖ Neutral"
+                insight = "The market is ranging with mixed signals. Patience is better than forcing trades."
 
             def trend_emoji(change):
                 return "🟢" if change >= 0 else "🔴"
@@ -2280,7 +2411,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"{trend_emoji(sol_change)} SOL: ${format_price(sol_price)} ({sol_change:+.2f}%)\n"
                 f"{trend_emoji(xrp_change)} XRP: ${format_price(xrp_price)} ({xrp_change:+.2f}%)\n"
                 f"{trend_emoji(doge_change)} DOGE: ${format_price(doge_price)} ({doge_change:+.2f}%)\n\n"
-                f"Market is active 🚀"
+                f"📊 *Market Trend:* {market_trend}\n"
+                f"🧠 *Insight:* {insight}\n\n"
+                f"💎 *Cryp Pro Active*"
             )
 
             await query.edit_message_text(
@@ -2292,13 +2425,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data == "upgrade":
             text = (
                 "💎 *Cryp Pro*\n\n"
-                "Upgrade your trading with powerful tools:\n\n"
-                "⚡ Unlimited alerts\n"
-                "📈 Premium signals\n"
-                "🧠 AI-powered insights\n\n"
-                "💰 *R99/month*\n\n"
-                "Stay subscribed to keep full access to Pro features.\n\n"
-                "👇 Tap below to upgrade"
+                "Trade smarter. React faster. Stay ahead.\n\n"
+                "⚡ *What you unlock:*\n"
+                "• Unlimited alerts\n"
+                "• Smart momentum alerts\n"
+                "• AI Daily Briefing\n"
+                "• Live market updates\n"
+                "• Premium news & sentiment\n"
+                "• Faster market awareness\n\n"
+                f"💰 *Only {LOCAL_PRICE_ZAR}/month*\n\n"
+                "📈 Built for traders who want an edge.\n\n"
+                "🚀 Upgrade now and unlock the full Cryp experience."
             )
             await query.edit_message_text(
                 text=text,
@@ -2899,6 +3036,31 @@ async def check_price_alerts(context: ContextTypes.DEFAULT_TYPE):
 
         except Exception as e:
             print("check_price_alerts error:", e)
+            
+        smart_alerts = get_smart_alerts()
+
+        for smart in smart_alerts:
+            key = f"{smart['coin']}_{smart['type']}"
+
+            if LAST_SMART_ALERTS.get(key):
+                continue
+
+            LAST_SMART_ALERTS[key] = True
+
+            for user_alert in PRICE_ALERTS:
+                user_id = user_alert["user_id"]
+                user = get_user(user_id)
+                is_pro_user = bool(user["is_pro"]) if user else False
+
+                if is_pro_user:
+                    try:
+                        await context.bot.send_message(
+                            chat_id=user_id,
+                            text=smart["text"],
+                            parse_mode="Markdown"
+                        )
+                    except Exception as e:
+                        print(f"Failed to send smart alert to {user_id}: {e}")
             
             
 async def show_alerts(update: Update, context: ContextTypes.DEFAULT_TYPE):
