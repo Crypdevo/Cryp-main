@@ -60,6 +60,10 @@ MARKET_CACHE = {}
 MARKET_CACHE_TIME = 0
 AI_CACHE = {}
 AI_CACHE_TIME = {}
+EXTENDED_MARKET_CACHE = {}
+EXTENDED_MARKET_CACHE_TIME = 0
+TOP_MOVERS_CACHE = None
+TOP_MOVERS_CACHE_TIME = 0
 
 def load_watchlists():
     global WATCHLISTS
@@ -246,6 +250,39 @@ def save_price_alerts():
 
     conn.commit()
     conn.close()
+    
+def get_extended_market_data():
+    global EXTENDED_MARKET_CACHE, EXTENDED_MARKET_CACHE_TIME
+
+    try:
+        current_time = time.time()
+
+        if EXTENDED_MARKET_CACHE and (current_time - EXTENDED_MARKET_CACHE_TIME < 120):
+            return EXTENDED_MARKET_CACHE
+
+        url = "https://api.coingecko.com/api/v3/simple/price"
+        params = {
+            "ids": "bitcoin,ethereum,solana,ripple,dogecoin",
+            "vs_currencies": "usd",
+            "include_24hr_change": "true"
+        }
+
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        EXTENDED_MARKET_CACHE = data
+        EXTENDED_MARKET_CACHE_TIME = current_time
+
+        return data
+
+    except Exception as e:
+        print("Error fetching extended market data:", e)
+
+        if EXTENDED_MARKET_CACHE:
+            return EXTENDED_MARKET_CACHE
+
+        return None    
             
 def get_coin_data(symbol):
     try:
@@ -261,20 +298,9 @@ def get_coin_data(symbol):
         if not coin_id:
             return "N/A", 0
 
-        url = "https://api.coingecko.com/api/v3/simple/price"
-        params = {
-            "ids": coin_id,
-            "vs_currencies": "usd",
-            "include_24hr_change": "true"
-        }
+        data = get_extended_market_data()
 
-        response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-
-        print(f"{symbol} DATA:", data)
-
-        if coin_id not in data:
+        if not data or coin_id not in data:
             return "N/A", 0
 
         price = data[coin_id].get("usd")
@@ -287,7 +313,7 @@ def get_coin_data(symbol):
 
     except Exception as e:
         print(f"get_coin_data error for {symbol}: {e}")
-        return "N/A", 0 
+        return "N/A", 0
     
 def format_price(price):
     if isinstance(price, (int, float)):
@@ -445,16 +471,9 @@ def get_coin_analysis(symbol, is_pro=False):
     
 def get_daily_briefing(is_pro=False):
     try:
-        url = "https://api.coingecko.com/api/v3/simple/price"
-        params = {
-            "ids": "bitcoin,ethereum,solana",
-            "vs_currencies": "usd",
-            "include_24hr_change": "true"
-        }
-
-        response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()
-        data = response.json()
+        data = get_cached_market_data()
+        if not data:
+            return "⚠️ Failed to fetch daily briefing. Try again later."        
 
         print("Daily briefing raw data:", data)
 
@@ -1289,7 +1308,14 @@ Risk: <1 short sentence>
         return "⚠️ Failed to generate daily briefing."                         
     
 def get_top_movers():
+    global TOP_MOVERS_CACHE, TOP_MOVERS_CACHE_TIME
+
     try:
+        current_time = time.time()
+
+        if TOP_MOVERS_CACHE and (current_time - TOP_MOVERS_CACHE_TIME < 300):
+            return TOP_MOVERS_CACHE
+
         url = "https://api.coingecko.com/api/v3/coins/markets"
         params = {
             "vs_currency": "usd",
@@ -1306,6 +1332,8 @@ def get_top_movers():
 
         if not isinstance(data, list) or not data:
             print("Top movers skipped: unexpected response", data)
+            if TOP_MOVERS_CACHE:
+                return TOP_MOVERS_CACHE
             return "⚠️ No top movers available right now."
 
         movers_text = "🚀 *Top Movers (24h)*\n\n"
@@ -1325,13 +1353,22 @@ def get_top_movers():
                 break
 
         if count == 0:
+            if TOP_MOVERS_CACHE:
+                return TOP_MOVERS_CACHE
             return "⚠️ No top movers available right now."
+
+        TOP_MOVERS_CACHE = movers_text
+        TOP_MOVERS_CACHE_TIME = current_time
 
         return movers_text
 
     except Exception as e:
         print("Error fetching top movers:", e)
-        return "⚠️ Failed to fetch top movers." 
+
+        if TOP_MOVERS_CACHE:
+            return TOP_MOVERS_CACHE
+
+        return "⚠️ Failed to fetch top movers."
     
 def get_breaking_alert():
     global LAST_BREAKING_ALERTS
