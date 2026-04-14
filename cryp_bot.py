@@ -248,13 +248,29 @@ def save_price_alerts():
     conn.close()
             
 def get_coin_data(symbol):
-    url = f"https://api.binance.com/api/v3/ticker/24hr?symbol={symbol}"
-    data = requests.get(url).json()
+    try:
+        url = f"https://api.binance.com/api/v3/ticker/24hr?symbol={symbol}"
+        response = requests.get(url, timeout=10)
+        data = response.json()
 
-    price = float(data["lastPrice"])
-    change = float(data["priceChangePercent"])
+        print(f"{symbol} DATA:", data)
 
-    return price, change            
+        if "lastPrice" not in data or "priceChangePercent" not in data:
+            return "N/A", 0
+
+        price = float(data["lastPrice"])
+        change = float(data["priceChangePercent"])
+
+        return price, change
+
+    except Exception as e:
+        print(f"get_coin_data error for {symbol}: {e}")
+        return "N/A", 0 
+    
+def format_price(price):
+    if isinstance(price, (int, float)):
+        return f"{price:,.4f}" if price < 1 else f"{price:,.2f}"
+    return str(price)               
 
 def main_menu_keyboard(user_id):
     user = get_user(user_id)
@@ -2199,13 +2215,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return "🟢" if change >= 0 else "🔴"
 
             text = (
-                "📈 *Cryp Pro Market Update*\n\n"
-                f"{trend_emoji(btc_change)} ₿ BTC: ${btc_price:,.2f} ({btc_change:+.2f}%)\n"
-                f"{trend_emoji(eth_change)} ◆ ETH: ${eth_price:,.2f} ({eth_change:+.2f}%)\n"
-                f"{trend_emoji(sol_change)} ◎ SOL: ${sol_price:,.2f} ({sol_change:+.2f}%)\n"
-                f"{trend_emoji(xrp_change)} ✕ XRP: ${xrp_price:,.4f} ({xrp_change:+.2f}%)\n"
-                f"{trend_emoji(doge_change)} 🐶 DOGE: ${doge_price:,.4f} ({doge_change:+.2f}%)\n\n"
-                "Market is active 🚀"
+                f"📊 *Cryp Pro Market Update*\n\n"
+                f"{trend_emoji(btc_change)} BTC: ${format_price(btc_price)} ({btc_change:+.2f}%)\n"
+                f"{trend_emoji(eth_change)} ETH: ${format_price(eth_price)} ({eth_change:+.2f}%)\n"
+                f"{trend_emoji(sol_change)} SOL: ${format_price(sol_price)} ({sol_change:+.2f}%)\n"
+                f"{trend_emoji(xrp_change)} XRP: ${format_price(xrp_price)} ({xrp_change:+.2f}%)\n"
+                f"{trend_emoji(doge_change)} DOGE: ${format_price(doge_price)} ({doge_change:+.2f}%)\n\n"
+                f"Market is active 🚀"
             )
 
             await query.edit_message_text(
