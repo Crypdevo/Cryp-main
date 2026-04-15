@@ -2786,18 +2786,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 telegram_username=username,
                 network="TRC20",
                 currency="USDT",
-                amount_expected=5,
+                amount_expected=float(CRYPTO_PRICE_USDT),
                 wallet_address=USDT_TRC20_ADDRESS,
                 txid=txid
             )
 
             # Notify admin
             admin_message = (
-                "🚨 New Crypto Payment Submission\n\n"
+                "📥 New Crypto Payment Submission\n\n"
                 f"Payment ID: {payment_id}\n"
                 f"User: @{username if username else 'No username'}\n"
                 f"User ID: {user_id}\n"
-                f"Amount: 5 USDT (TRC20)\n"
+                f"Amount: {CRYPTO_PRICE_USDT} USDT (TRC20)\n"
                 f"TXID:\n{txid}"
             )
 
