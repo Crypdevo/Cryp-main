@@ -25,7 +25,7 @@ from migrate_pro_users import migrate
 from db import approve_crypto_payment
 from db import reject_crypto_payment
 from db import get_pending_crypto_payments
-from datetime import datetime, timedelta, timezone, time
+from datetime import datetime, timedelta, timezone, time as dt_time
 from db import expire_user_pro
 from db import get_expired_pro_users
 
@@ -3321,25 +3321,25 @@ def main():
 
     app.job_queue.run_daily(
         send_daily_briefing,
-        time=time(hour=8, minute=0, tzinfo=timezone.utc)
+        time=dt_time(hour=8, minute=7, tzinfo=timezone.utc)
     )
 
     for hour in [6, 10, 14, 18]:
         app.job_queue.run_daily(
             send_market_snapshot,
-            time=time(hour=hour, minute=5, tzinfo=timezone.utc)
+            time=dt_time(hour=hour, minute=5, tzinfo=timezone.utc)
         )
 
     for hour in [7, 11, 15, 19]:
         app.job_queue.run_daily(
             send_top_movers,
-            time=time(hour=hour, minute=0, tzinfo=timezone.utc)
+            time=dt_time(hour=hour, minute=0, tzinfo=timezone.utc)
         )
 
     for hour in [8, 16]:
         app.job_queue.run_daily(
             send_premium_insight,
-            time=time(hour=hour, minute=0, tzinfo=timezone.utc)
+            time=dt_time(hour=hour, minute=0, tzinfo=timezone.utc)
         )
 
     app.job_queue.run_repeating(send_breaking_alert, interval=900, first=900)
