@@ -25,7 +25,7 @@ from migrate_pro_users import migrate
 from db import approve_crypto_payment
 from db import reject_crypto_payment
 from db import get_pending_crypto_payments
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, time
 from db import expire_user_pro
 from db import get_expired_pro_users
 
@@ -3311,17 +3311,40 @@ def main():
     app.add_handler(MessageHandler(filters.ChatType.CHANNEL, log_channel_post))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
     app.job_queue.run_repeating(check_price_alerts, interval=30, first=5)
     app.job_queue.run_repeating(check_expired_pro_users, interval=300, first=10)
     app.job_queue.run_repeating(refresh_market_cache_job, interval=120, first=5)
-    app.job_queue.run_repeating(send_pro_daily_update, interval=3600, first=10)
-    app.job_queue.run_repeating(send_market_snapshot, interval=3600, first=15)
-    app.job_queue.run_repeating(send_top_movers, interval=14400, first=20)
-    app.job_queue.run_repeating(send_breaking_alert, interval=900, first=25)
-    app.job_queue.run_repeating(send_premium_insight, interval=14400, first=30)
-    app.job_queue.run_repeating(send_daily_briefing, interval=86400, first=86400)
 
-    print("Cryp bot is running...")
+    # Fixed-time Cryp Pro channel schedule
+    # UTC times used below (SAST = UTC+2)
+
+    app.job_queue.run_daily(
+        send_daily_briefing,
+        time=time(hour=6, minute=0, tzinfo=timezone.utc)
+    )
+
+    for hour in [6, 10, 14, 18]:
+        app.job_queue.run_daily(
+            send_market_snapshot,
+            time=time(hour=hour, minute=5, tzinfo=timezone.utc)
+        )
+
+    for hour in [7, 11, 15, 19]:
+        app.job_queue.run_daily(
+            send_top_movers,
+            time=time(hour=hour, minute=0, tzinfo=timezone.utc)
+        )
+
+    for hour in [8, 16]:
+        app.job_queue.run_daily(
+            send_premium_insight,
+            time=time(hour=hour, minute=0, tzinfo=timezone.utc)
+        )
+
+    app.job_queue.run_repeating(send_breaking_alert, interval=900, first=900)
+
+    print("Cryp bot is running.")
     app.run_polling()
 
 if __name__ == "__main__":
