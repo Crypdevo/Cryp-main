@@ -1,6 +1,7 @@
 import logging
 import os
 import sqlite3
+import psycopg
 import time
 
 import requests
@@ -17,6 +18,9 @@ from telegram.ext import (
 )
 
 from db import create_or_update_user
+from db import init_alerts_table
+from db import get_all_alerts
+from db import replace_all_alerts
 from db import create_crypto_payment
 from db import get_user
 from db import init_db as init_main_db
@@ -42,6 +46,9 @@ CRYPTO_PRICE_USDT = "6.00"
 LOCAL_PRICE_ZAR = "R99"
 INTL_PRICE_USD = "$6"
 LEMON_CHECKOUT_URL = os.getenv("LEMON_CHECKOUT_URL", "")
+TRONGRID_API_KEY = os.getenv("TRONGRID_API_KEY", "")
+TRONGRID_BASE_URL = "https://api.trongrid.io"
+USDT_TRC20_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -208,51 +215,11 @@ logging.basicConfig(
 )
 def load_price_alerts():
     global PRICE_ALERTS
-    PRICE_ALERTS = []
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT user_id, coin, condition, target, premium
-        FROM alerts
-    """)
-
-    rows = cursor.fetchall()
-    conn.close()
-
-    for row in rows:
-        user_id, coin, condition, target, premium = row
-
-        PRICE_ALERTS.append({
-            "user_id": user_id,
-            "coin": coin,
-            "condition": condition,
-            "target": float(target),
-            "premium": bool(premium)
-        })
+    PRICE_ALERTS = get_all_alerts()
 
 
 def save_price_alerts():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("DELETE FROM alerts")
-
-    for alert in PRICE_ALERTS:
-        cursor.execute("""
-            INSERT INTO alerts (user_id, coin, condition, target, premium)
-            VALUES (?, ?, ?, ?, ?)
-        """, (
-            alert["user_id"],
-            alert["coin"],
-            alert.get("condition", "above"),
-            float(alert["target"]),
-            1 if alert.get("premium", False) else 0
-        ))
-
-    conn.commit()
-    conn.close()
+    replace_all_alerts(PRICE_ALERTS)
     
 def get_extended_market_data():
     global EXTENDED_MARKET_CACHE, EXTENDED_MARKET_CACHE_TIME
@@ -488,6 +455,139 @@ def crypto_payment_keyboard():
         [InlineKeyboardButton("⬅ Back to Upgrade", callback_data="upgrade")]
     ]
     return InlineKeyboardMarkup(keyboard)
+
+def get_trongrid_headers():
+    headers = {}
+    if TRONGRID_API_KEY:
+        headers["TRON-PRO-API-KEY"] = TRONGRID_API_KEY
+    return headers
+
+def verify_trc20_usdt_payment(txid: str):
+    """
+    Verifies whether a submitted TXID contains a confirmed inbound
+    USDT (TRC20) transfer to our wallet for the exact expected amount.
+
+    Returns:
+        {
+            "ok": bool,
+            "status": "approved" | "pending" | "invalid",
+            "reason": "...",
+            "amount": float | None,
+            "from_address": str | None,
+            "to_address": str | None,
+            "txid": str
+        }
+    """
+    try:
+        txid = txid.strip()
+
+        if not txid:
+            return {
+                "ok": False,
+                "status": "invalid",
+                "reason": "Empty TXID.",
+                "amount": None,
+                "from_address": None,
+                "to_address": None,
+                "txid": txid,
+            }
+
+        url = f"{TRONGRID_BASE_URL}/v1/transactions/{txid}/events"
+        response = requests.get(url, headers=get_trongrid_headers(), timeout=15)
+        response.raise_for_status()
+
+        data = response.json()
+        events = data.get("data", [])
+
+        if not events:
+            return {
+                "ok": False,
+                "status": "pending",
+                "reason": "No TRC20 transfer event found yet. Transaction may still be pending.",
+                "amount": None,
+                "from_address": None,
+                "to_address": None,
+                "txid": txid,
+            }
+
+        expected_amount = float(CRYPTO_PRICE_USDT)
+
+        for event in events:
+            event_name = event.get("event_name")
+            contract_address = event.get("contract_address")
+            result = event.get("result", {}) or {}
+
+            if event_name != "Transfer":
+                continue
+
+            if contract_address != USDT_TRC20_CONTRACT:
+                continue
+
+            to_address = result.get("to")
+            from_address = result.get("from")
+            raw_value = result.get("value")
+
+            if not to_address or not raw_value:
+                continue
+
+            # USDT TRC20 uses 6 decimals on TRON
+            amount = float(raw_value) / 1_000_000
+
+            if to_address != USDT_TRC20_ADDRESS:
+                continue
+
+            if abs(amount - expected_amount) > 0.000001:
+                return {
+                    "ok": False,
+                    "status": "invalid",
+                    "reason": f"Amount mismatch. Expected {expected_amount}, got {amount}.",
+                    "amount": amount,
+                    "from_address": from_address,
+                    "to_address": to_address,
+                    "txid": txid,
+                }
+
+            return {
+                "ok": True,
+                "status": "approved",
+                "reason": "Verified successfully.",
+                "amount": amount,
+                "from_address": from_address,
+                "to_address": to_address,
+                "txid": txid,
+            }
+
+        return {
+            "ok": False,
+            "status": "invalid",
+            "reason": "No matching USDT TRC20 transfer to the Cryp wallet was found.",
+            "amount": None,
+            "from_address": None,
+            "to_address": None,
+            "txid": txid,
+        }
+
+    except requests.exceptions.HTTPError as e:
+        return {
+            "ok": False,
+            "status": "pending",
+            "reason": f"HTTP error while checking TXID: {e}",
+            "amount": None,
+            "from_address": None,
+            "to_address": None,
+            "txid": txid,
+        }
+
+    except Exception as e:
+        return {
+            "ok": False,
+            "status": "pending",
+            "reason": f"Verification error: {e}",
+            "amount": None,
+            "from_address": None,
+            "to_address": None,
+            "txid": txid,
+        }
 
 def get_coin_analysis(symbol, is_pro=False):
     global ANALYSIS_CACHE, ANALYSIS_CACHE_TIME
@@ -2499,7 +2599,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "• Live market updates\n"
                 "• Premium news & sentiment\n"
                 "• Faster market awareness\n\n"
-                f"💰 *Only {LOCAL_PRICE_ZAR}/month*\n\n"
+                f"💰 *Pricing:*\n"
+                f"• Card: {LOCAL_PRICE_ZAR}/month\n"
+                f"• Crypto: {CRYPTO_PRICE_USDT} USDT/month\n\n"
                 "📈 Built for traders who want an edge.\n\n"
                 "🚀 Upgrade now and unlock the full Cryp experience."
             )
@@ -2603,7 +2705,7 @@ Tap *I've Paid* and submit your TXID for verification.
                 "👥 Trusted by growing crypto traders\n\n"
                 
                 "💰 *Pricing:*\n"
-                "R99/month or $5/month\n\n"
+                f"R99/month or {CRYPTO_PRICE_USDT} USDT/month\n\n"
                 
                 "⚡ Upgrade now and unlock your full trading advantage."
             )
@@ -2617,12 +2719,12 @@ Tap *I've Paid* and submit your TXID for verification.
 
             await query.edit_message_text(
                 text=(
-                    "✅ *Crypto payment started*\n\n"
-                    "Please reply with your *TXID / transaction hash*.\n\n"
-                    "Example:\n"
-                    "`abc123xyz456...`\n\n"
-                    "Once submitted, your payment will be marked for review."
-                ),
+                "✅ *Crypto payment started*\n\n"
+                "Please reply with your *TXID / transaction hash*.\n\n"
+                "Example:\n"
+                "`abc123xyz456...`\n\n"
+                "Once submitted, your payment will be checked automatically."
+            ),
                 parse_mode="Markdown",
                 reply_markup=back_menu_keyboard()
             )    
@@ -2727,31 +2829,37 @@ Tap *I've Paid* and submit your TXID for verification.
         print("Button handler error:", e)
         
 async def approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global pro_users
-
     if update.effective_user.id != ADMIN_ID:
         return
 
     try:
         user_id = int(context.args[0])
+        expiry = datetime.utcnow() + timedelta(days=30)
 
-        if user_id not in pro_users:
-            pro_users.add(user_id)
-            save_pro_users()
+        set_user_pro(
+            telegram_user_id=user_id,
+            is_pro=1,
+            subscription_status="manual",
+            pro_expires_at=expiry.isoformat()
+        )
 
         await context.bot.send_message(
             chat_id=user_id,
             text=(
-                "Welcome to Cryp Pro 🚀\n\n"
-                "Your payment has been confirmed.\n\n"
-                "Here is your private access link:\n"
-                "https://t.me/+HCrmHvpLg_kzMGY0"
-            )
+                "🎉 *Payment Confirmed!*\n\n"
+                "Welcome to *Cryp Pro* 🚀\n\n"
+                "Your access is now active for 30 days.\n\n"
+                "🔗 *Private Access Link:*\n"
+                f"{CRYP_PRO_LINK}\n\n"
+                "Tap the link to join the premium channel."
+            ),
+            parse_mode="Markdown"
         )
 
         await update.message.reply_text("User approved ✅")
 
-    except:
+    except Exception as e:
+        print("APPROVE ERROR:", e)
         await update.message.reply_text("Error. Use: /approve USER_ID")
         
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2775,30 +2883,96 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         supported_coins = ["btc", "eth", "sol", "xrp", "doge", "ada", "bnb"]
         
-                # NEW: handle crypto TXID submission
+        # NEW: handle crypto TXID submission
         if context.user_data.get("awaiting_crypto_txid"):
             txid = raw_text.strip()
-
             context.user_data["awaiting_crypto_txid"] = False
 
-            payment_id = create_crypto_payment(
-                telegram_user_id=user_id,
-                telegram_username=username,
-                network="TRC20",
-                currency="USDT",
-                amount_expected=float(CRYPTO_PRICE_USDT),
-                wallet_address=USDT_TRC20_ADDRESS,
-                txid=txid
+            try:
+                payment_id = create_crypto_payment(
+                    telegram_user_id=user_id,
+                    telegram_username=username,
+                    network="TRC20",
+                    currency="USDT",
+                    amount_expected=float(CRYPTO_PRICE_USDT),
+                    wallet_address=USDT_TRC20_ADDRESS,
+                    txid=txid
+                )
+
+            except (sqlite3.IntegrityError, psycopg.errors.UniqueViolation):
+                await update.message.reply_text(
+                    "⚠️ This TXID has already been used.\n\n"
+                    "If you believe this is a mistake, please contact support."
+                )
+                return
+
+            except Exception as e:
+                print("CRYPTO PAYMENT ERROR:", e)
+                await update.message.reply_text(
+                    "❌ Something went wrong while processing your payment.\n\n"
+                    "Please try again or contact support."
+                )
+                return
+
+            payment = {
+                "id": payment_id,
+                "telegram_user_id": user_id,
+                "telegram_username": username,
+                "txid": txid,
+            }
+
+            await update.message.reply_text(
+                "⏳ Checking your payment on-chain now..."
             )
 
-            # Notify admin
+            verification = verify_trc20_usdt_payment(txid)
+
+            # ✅ AUTO APPROVE
+            if verification["ok"]:
+                await auto_activate_crypto_payment(context, payment)
+                return
+
+            # ⏳ PENDING (not confirmed yet)
+            if verification["status"] == "pending":
+                admin_message = (
+                    "📥 New Crypto Payment Submission\n\n"
+                    f"Payment ID: {payment_id}\n"
+                    f"User: @{username if username else 'No username'}\n"
+                    f"User ID: {user_id}\n"
+                    f"Amount: {CRYPTO_PRICE_USDT} USDT (TRC20)\n"
+                    f"TXID:\n{txid}\n\n"
+                    f"Status: Pending auto-verification\n"
+                    f"Reason: {verification['reason']}"
+                )
+
+                admin_keyboard = InlineKeyboardMarkup([
+                    [
+                        InlineKeyboardButton("✅ Approve", callback_data=f"approve_crypto_{payment_id}"),
+                        InlineKeyboardButton("❌ Reject", callback_data=f"reject_crypto_{payment_id}")
+                    ]
+                ])
+
+                await context.bot.send_message(
+                    chat_id=ADMIN_ID,
+                    text=admin_message,
+                    reply_markup=admin_keyboard
+                )
+
+                await update.message.reply_text(
+                    "⏳ Payment found, but it may still be confirming.\n\n"
+                    "It will be automatically approved once confirmed."
+                )
+                return
+
+            # ❌ INVALID
             admin_message = (
-                "📥 New Crypto Payment Submission\n\n"
+                "🚨 Crypto Payment Verification Failed\n\n"
                 f"Payment ID: {payment_id}\n"
                 f"User: @{username if username else 'No username'}\n"
                 f"User ID: {user_id}\n"
                 f"Amount: {CRYPTO_PRICE_USDT} USDT (TRC20)\n"
-                f"TXID:\n{txid}"
+                f"TXID:\n{txid}\n\n"
+                f"Reason: {verification['reason']}"
             )
 
             admin_keyboard = InlineKeyboardMarkup([
@@ -2815,11 +2989,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
             await update.message.reply_text(
-                "✅ Payment submitted successfully!\n\n"
-                "Your transaction is now under review.\n"
-                "You will be upgraded to Cryp Pro once confirmed."
+                "❌ Could not verify this payment automatically.\n\n"
+                "It has been sent for manual review."
             )
-
             return
 
         # NEW: handle payment email capture
@@ -3187,29 +3359,7 @@ async def refresh_market_cache_job(context: ContextTypes.DEFAULT_TYPE):
     try:
         get_cached_market_data()
     except Exception as e:
-        print("Market cache refresh job error:", e)    
-
-def get_db_connection():
-    return sqlite3.connect(DB_FILE)
-
-
-def init_alerts_db():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS alerts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            coin TEXT NOT NULL,
-            condition TEXT NOT NULL,
-            target REAL NOT NULL,
-            premium INTEGER NOT NULL DEFAULT 0
-        )
-    """)
-
-    conn.commit()
-    conn.close()    
+        print("Market cache refresh job error:", e)   
 
 
 def validate_environment():
@@ -3286,13 +3436,73 @@ async def set_test_expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     except Exception as e:
-        await update.message.reply_text(f"Error setting expiry: {e}")               
+        await update.message.reply_text(f"Error setting expiry: {e}")
+        
+async def recheck_pending_crypto_payments(context: ContextTypes.DEFAULT_TYPE):
+    try:
+        payments = get_pending_crypto_payments()
+
+        for payment in payments:
+            txid = payment.get("txid")
+            if not txid:
+                continue
+
+            verification = verify_trc20_usdt_payment(txid)
+
+            if verification["ok"]:
+                await auto_activate_crypto_payment(context, payment)
+
+    except Exception as e:
+        print("Pending crypto recheck error:", e)        
+        
+async def auto_activate_crypto_payment(context: ContextTypes.DEFAULT_TYPE, payment: dict):
+    try:
+        payment_id = payment["id"]
+        user_id = payment["telegram_user_id"]
+
+        approve_crypto_payment(payment_id)
+
+        expiry = datetime.utcnow() + timedelta(days=30)
+
+        set_user_pro(
+            telegram_user_id=user_id,
+            is_pro=1,
+            subscription_status="crypto",
+            pro_expires_at=expiry.isoformat()
+        )
+
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                "🎉 *Payment Confirmed Automatically!*\n\n"
+                "Welcome to *Cryp Pro* 🚀\n\n"
+                "Your access is now active for 30 days.\n\n"
+                "🔗 *Private Access Link:*\n"
+                f"{CRYP_PRO_LINK}\n\n"
+                "Tap the link to join the premium channel."
+            ),
+            parse_mode="Markdown"
+        )
+
+        await context.bot.send_message(
+            chat_id=ADMIN_ID,
+            text=(
+                "✅ *Auto-approved crypto payment*\n\n"
+                f"Payment ID: {payment_id}\n"
+                f"User ID: {user_id}\n"
+                f"TXID: `{payment['txid']}`"
+            ),
+            parse_mode="Markdown"
+        )
+
+    except Exception as e:
+        print("Auto-activation error:", e)
 
 
 def main():
     validate_environment()
     init_main_db()
-    init_alerts_db()
+    init_alerts_table()
     load_pro_users()
     load_price_alerts()
     load_watchlists()
@@ -3313,6 +3523,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     app.job_queue.run_repeating(check_price_alerts, interval=30, first=5)
+    app.job_queue.run_repeating(recheck_pending_crypto_payments, interval=60, first=20)
     app.job_queue.run_repeating(check_expired_pro_users, interval=300, first=10)
     app.job_queue.run_repeating(refresh_market_cache_job, interval=120, first=5)
 

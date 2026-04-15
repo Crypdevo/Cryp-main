@@ -500,4 +500,153 @@ def expire_user_pro(telegram_user_id):
     )
 
     conn.commit()
-    conn.close()       
+    conn.close()  
+    
+def set_user_lemon(
+    telegram_user_id,
+    is_pro=None,
+    subscription_status=None,
+    lemon_customer_id=None,
+    lemon_subscription_id=None,
+    lemon_order_id=None,
+    lemon_product_id=None,
+    lemon_variant_id=None,
+    current_period_end=None,
+    pro_expires_at=None
+):
+    conn = get_conn()
+    cur = conn.cursor()
+
+    execute(
+        cur,
+        """
+        UPDATE users
+        SET is_pro = COALESCE(%s, is_pro),
+            subscription_status = COALESCE(%s, subscription_status),
+            lemon_customer_id = COALESCE(%s, lemon_customer_id),
+            lemon_subscription_id = COALESCE(%s, lemon_subscription_id),
+            lemon_order_id = COALESCE(%s, lemon_order_id),
+            lemon_product_id = COALESCE(%s, lemon_product_id),
+            lemon_variant_id = COALESCE(%s, lemon_variant_id),
+            current_period_end = COALESCE(%s, current_period_end),
+            pro_expires_at = COALESCE(%s, pro_expires_at),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE telegram_user_id = %s
+        """,
+        (
+            is_pro,
+            subscription_status,
+            lemon_customer_id,
+            lemon_subscription_id,
+            lemon_order_id,
+            lemon_product_id,
+            lemon_variant_id,
+            current_period_end,
+            pro_expires_at,
+            telegram_user_id
+        )
+    )
+
+    conn.commit()
+    conn.close()
+    
+def get_user_by_email(email):
+    conn = get_conn()
+    cur = conn.cursor()
+
+    execute(
+        cur,
+        "SELECT * FROM users WHERE email = %s",
+        (email,)
+    )
+    row = cur.fetchone()
+
+    conn.close()
+    return row    
+
+def init_alerts_table():
+    conn = get_conn()
+    cur = conn.cursor()
+
+    execute(
+        cur,
+        """
+        CREATE TABLE IF NOT EXISTS alerts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            coin TEXT NOT NULL,
+            condition TEXT NOT NULL,
+            target REAL NOT NULL,
+            premium INTEGER NOT NULL DEFAULT 0
+        )
+        """
+        if not using_postgres()
+        else
+        """
+        CREATE TABLE IF NOT EXISTS alerts (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            coin TEXT NOT NULL,
+            condition TEXT NOT NULL,
+            target DOUBLE PRECISION NOT NULL,
+            premium INTEGER NOT NULL DEFAULT 0
+        )
+        """
+    )
+
+    conn.commit()
+    conn.close()
+
+
+def get_all_alerts():
+    conn = get_conn()
+    cur = conn.cursor()
+
+    execute(
+        cur,
+        """
+        SELECT user_id, coin, condition, target, premium
+        FROM alerts
+        ORDER BY id ASC
+        """
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    alerts = []
+    for row in rows:
+        alerts.append({
+            "user_id": row["user_id"],
+            "coin": row["coin"],
+            "condition": row["condition"],
+            "target": float(row["target"]),
+            "premium": bool(row["premium"]),
+        })
+
+    return alerts
+
+
+def replace_all_alerts(alerts):
+    conn = get_conn()
+    cur = conn.cursor()
+
+    execute(cur, "DELETE FROM alerts")
+
+    for alert in alerts:
+        execute(
+            cur,
+            """
+            INSERT INTO alerts (user_id, coin, condition, target, premium)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (
+                alert["user_id"],
+                alert["coin"],
+                alert.get("condition", "above"),
+                float(alert["target"]),
+                1 if alert.get("premium", False) else 0,
+            )
+        )
+
+    conn.commit()
+    conn.close()         
