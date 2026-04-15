@@ -227,7 +227,7 @@ def get_extended_market_data():
     try:
         current_time = time.time()
 
-        if EXTENDED_MARKET_CACHE and (current_time - EXTENDED_MARKET_CACHE_TIME < 120):
+        if EXTENDED_MARKET_CACHE and (current_time - EXTENDED_MARKET_CACHE_TIME < 300):
             return EXTENDED_MARKET_CACHE
 
         url = "https://api.coingecko.com/api/v3/simple/price"
@@ -1751,8 +1751,8 @@ def get_cached_market_data():
     try:
         current_time = time.time()
 
-        # Reuse cached data for 120 seconds
-        if MARKET_CACHE and (current_time - MARKET_CACHE_TIME < 120):
+        # Reuse cached data for 300 seconds
+        if MARKET_CACHE and (current_time - MARKET_CACHE_TIME < 300):
             return MARKET_CACHE
 
         url = "https://api.coingecko.com/api/v3/simple/price"
