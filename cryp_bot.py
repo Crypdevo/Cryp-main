@@ -3321,7 +3321,7 @@ def main():
 
     app.job_queue.run_daily(
         send_daily_briefing,
-        time=time(hour=6, minute=0, tzinfo=timezone.utc)
+        time=time(hour=8, minute=0, tzinfo=timezone.utc)
     )
 
     for hour in [6, 10, 14, 18]:
